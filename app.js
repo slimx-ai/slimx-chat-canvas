@@ -1,126 +1,36 @@
-const TILE_W = 320;
-const TILE_H = 180;
-const OFFSETS = { north: { x: 0, y: -TILE_H }, south: { x: 0, y: TILE_H }, east: { x: TILE_W, y: 0 }, west: { x: -TILE_W, y: 0 } };
+const TILE_W=320,TILE_H=180,OFFSETS={north:{x:0,y:-TILE_H},south:{x:0,y:TILE_H},east:{x:TILE_W,y:0},west:{x:-TILE_W,y:0}};
+const el=(id)=>document.getElementById(id),canvas=el('canvas'),edgesSvg=el('edges'),minimap=el('minimap'),viewport=minimap.querySelector('.viewport'),onboarding=el('onboarding'),template=el('nodeTemplate'),chatLane=el('chatLane');
+const nodes=new Map(); let selectedNodeId=null,selectedDirection='south',focusMode=false,contextMode='focused',viewMode='chat',camera={x:620,y:260,zoom:.8},onboardingDismissed=false;
+function createNode({role,content,parentId=null,directionFromParent=null,tags=[]}){const id=crypto.randomUUID(),p=parentId?nodes.get(parentId):null,c=p&&directionFromParent?{x:p.coordinates.x+OFFSETS[directionFromParent].x,y:p.coordinates.y+OFFSETS[directionFromParent].y}:{x:0,y:0}; const n={id,role,content,parentId,directionFromParent,coordinates:c,tags,children:{north:null,east:null,west:null,south:null}}; nodes.set(id,n); if(p&&directionFromParent)p.children[directionFromParent]=id; return n;}
+const contextPath=(id)=>{const a=[];let c=nodes.get(id);while(c){a.unshift(c);c=c.parentId?nodes.get(c.parentId):null;}return a;};
+function findBranchOrigin(id){const root=[...nodes.values()].find(n=>!n.parentId),p=contextPath(id);return p.find(n=>n.parentId===root?.id)||p[1]||p[0];}
+function focusedContext(id){const p=contextPath(id);if(p.length<=2)return p;const o=findBranchOrigin(id),i=p.findIndex(n=>n.id===o.id);return [p[0],...p.slice(Math.max(1,i))];}
+const buildContext=(id)=>contextMode==='ancestor'?contextPath(id):focusedContext(id);
+const fakeAssistantReply=(p,d)=>`NEWS-${d.toUpperCase()} synthesis. Context ${contextMode}, ${p.length} nodes.`;
+const nodeAt=(x,y)=>[...nodes.values()].find(n=>n.coordinates.x===x&&n.coordinates.y===y)||null; const targetFor=(n,d)=>({x:n.coordinates.x+OFFSETS[d].x,y:n.coordinates.y+OFFSETS[d].y});
+function bounds(){const a=[...nodes.values()],xs=a.map(n=>n.coordinates.x),ys=a.map(n=>n.coordinates.y);return{minX:Math.min(...xs),minY:Math.min(...ys),maxX:Math.max(...xs)+TILE_W,maxY:Math.max(...ys)+TILE_H};}
+function canvasRect(){return document.querySelector('.canvas-wrap').getBoundingClientRect();}
+function applyCamera(){canvas.style.transform=`translate(${camera.x}px,${camera.y}px) scale(${camera.zoom})`;edgesSvg.style.transform=canvas.style.transform;}
+function centerOnNode(n){const r=canvasRect();camera.x=r.width/2-(n.coordinates.x+TILE_W/2)*camera.zoom;camera.y=(r.height-60)/2-(n.coordinates.y+TILE_H/2)*camera.zoom;applyCamera();renderMinimap();}
+function fitToGraph(){const b=bounds(),r=canvasRect(),z=Math.max(.25,Math.min(1.4,Math.min(r.width/(b.maxX-b.minX+80),r.height/(b.maxY-b.minY+80))));camera.zoom=z;camera.x=-(b.minX*z)+20;camera.y=-(b.minY*z)+20;applyCamera();renderMinimap();}
+function showStatus(msg=''){el('statusMsg').textContent=msg;}
+function updateCompassAvailability(){const base=nodes.get(selectedNodeId);document.querySelectorAll('#compass [data-dir]').forEach(btn=>{const d=btn.dataset.dir;if(!base){btn.disabled=true;return;}const t=targetFor(base,d),occ=nodeAt(t.x,t.y),child=base.children[d];btn.disabled=!!(occ&&occ.id!==child);btn.classList.toggle('active',d===selectedDirection);});}
+function renderEdges(active){edgesSvg.innerHTML='';if(viewMode!=='map')return;for(const n of nodes.values()){if(!n.parentId)continue;const p=nodes.get(n.parentId),l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('x1',p.coordinates.x+TILE_W/2);l.setAttribute('y1',p.coordinates.y+TILE_H/2);l.setAttribute('x2',n.coordinates.x+TILE_W/2);l.setAttribute('y2',n.coordinates.y+TILE_H/2);l.setAttribute('class',`edge ${active.has(n.id)&&active.has(p.id)?'active':''}`);edgesSvg.appendChild(l);}}
+function renderMap(){canvas.innerHTML='';const active=new Set(contextPath(selectedNodeId).map(n=>n.id));for(const n of nodes.values()){const f=template.content.cloneNode(true),card=f.querySelector('.node');card.classList.add(n.role);card.style.left=`${n.coordinates.x}px`;card.style.top=`${n.coordinates.y}px`;if(n.id===selectedNodeId)card.classList.add('active');if(focusMode&&!active.has(n.id))card.style.opacity='.35';card.querySelector('.role').textContent=n.role;card.querySelector('.meta').textContent=n.directionFromParent||'root';card.querySelector('.content').textContent=n.content;card.onclick=()=>{selectedNodeId=n.id;updateInspector();rerender();};card.querySelectorAll('.branch-arrow').forEach(b=>{const d=b.dataset.dir,t=targetFor(n,d),occ=nodeAt(t.x,t.y),child=n.children[d];b.disabled=!!(occ&&occ.id!==child);b.classList.toggle('has-child',!!child);b.classList.toggle('blocked',b.disabled);b.onclick=(e)=>{e.stopPropagation();if(b.disabled)return;selectedDirection=d;if(child){selectedNodeId=child;}else{selectedNodeId=n.id;}updateInspector();rerender();};});canvas.appendChild(f);}renderEdges(active);}
+function renderChat(){chatLane.innerHTML='';for(const n of buildContext(selectedNodeId)){const m=document.createElement('div');m.className=`msg ${n.role}`;m.innerHTML=`<strong>${n.role}</strong><div>${n.content}</div>`;chatLane.appendChild(m);} }
+function renderMinimap(){minimap.querySelectorAll('.minidot').forEach(n=>n.remove());if(viewMode!=='map'||minimap.classList.contains('minimap-collapsed'))return;const b=bounds(),w=b.maxX-b.minX,h=b.maxY-b.minY,sx=200/Math.max(w,1),sy=120/Math.max(h,1),r=canvasRect();for(const n of nodes.values()){const d=document.createElement('div');d.className='minidot';d.style.left=`${10+(n.coordinates.x-b.minX)*sx}px`;d.style.top=`${10+(n.coordinates.y-b.minY)*sy}px`;minimap.appendChild(d);}viewport.style.left=`${10+((-camera.x/camera.zoom)-b.minX)*sx}px`;viewport.style.top=`${10+((-camera.y/camera.zoom)-b.minY)*sy}px`;viewport.style.width=`${(r.width/camera.zoom)*sx}px`;viewport.style.height=`${(r.height/camera.zoom)*sy}px`;}
+function updateInspector(){const cur=nodes.get(selectedNodeId),inc=buildContext(selectedNodeId),all=contextPath(selectedNodeId);el('activeNode').textContent=cur?`${cur.role} · ${cur.directionFromParent||'root'}`:'—';el('branchDirection').textContent=selectedDirection;el('pathDepth').textContent=String(inc.length);el('contextPreview').textContent=`Mode: ${contextMode}\n\nIncluded:\n${inc.map((n,i)=>`${i+1}. ${n.content}`).join('\n')}\n\nExcluded:\n- ${Math.max(0,all.length-inc.length)} older nodes\n- sibling branches`;el('actionBar').textContent=`Replying to: ${cur?.content?.slice(0,40)||'none'} · Branch: ${selectedDirection} · Context ${contextMode}`;updateCompassAvailability();}
+function rerender(){const wrap=el('canvasWrap');wrap.classList.toggle('focused-chat',viewMode==='chat');wrap.classList.toggle('map-mode',viewMode==='map');if(viewMode==='map'){renderMap();applyCamera();}else{canvas.innerHTML='';edgesSvg.innerHTML='';renderChat();}renderMinimap();onboarding.style.display=(!onboardingDismissed&&![...nodes.values()].some(n=>n.role==='user'))?'block':'none';}
 
-const canvas = document.getElementById('canvas');
-const edgesSvg = document.getElementById('edges');
-const minimap = document.getElementById('minimap');
-const viewport = minimap.querySelector('.viewport');
-const onboarding = document.getElementById('onboarding');
-const template = document.getElementById('nodeTemplate');
-const nodes = new Map();
-let selectedNodeId = null, selectedDirection = 'south', focusMode = false, contextMode = 'focused', minimapOpen = true;
-let camera = { x: 620, y: 260, zoom: 0.8 };
+el('sendBtn').onclick=()=>{showStatus('');const text=el('prompt').value.trim();if(!text||!selectedNodeId)return;const base=nodes.get(selectedNodeId),t=targetFor(base,selectedDirection),occ=nodeAt(t.x,t.y),child=base.children[selectedDirection];if(occ&&occ.id!==child){showStatus(`${selectedDirection} is blocked. Select another direction.`);return;}if(child){showStatus(`This direction already has a branch. Open it from node arrow.`);return;}const u=createNode({role:'user',content:text,parentId:selectedNodeId,directionFromParent:selectedDirection,tags:[selectedDirection]}),a=createNode({role:'assistant',content:fakeAssistantReply(buildContext(u.id),selectedDirection),parentId:u.id,directionFromParent:selectedDirection,tags:['auto']});selectedNodeId=a.id;el('prompt').value='';onboardingDismissed=true;updateInspector();rerender();if(viewMode==='map')centerOnNode(a);};
 
-const el = (id) => document.getElementById(id);
+document.querySelectorAll('#compass [data-dir]').forEach(b=>b.onclick=()=>{selectedDirection=b.dataset.dir;updateInspector();});
+document.querySelectorAll('.ctx-btn').forEach(b=>b.onclick=()=>{contextMode=b.dataset.ctx;document.querySelectorAll('.ctx-btn').forEach(x=>x.classList.toggle('active',x===b));updateInspector();rerender();});
+el('viewModeBtn').onclick=()=>{viewMode=viewMode==='chat'?'map':'chat';el('viewModeBtn').textContent=viewMode==='chat'?'Map':'Chat';rerender();};
+el('contextToggleBtn').onclick=()=>{const i=el('inspector');i.classList.toggle('hidden');document.querySelector('.shell').classList.toggle('with-inspector',!i.classList.contains('hidden'));};
+el('toggleSidebarBtn').onclick=()=>el('sidebar').classList.toggle('expanded');
+el('fitBtn').onclick=()=>fitToGraph();el('focusBtn').onclick=()=>{focusMode=!focusMode;rerender();};el('searchInput').oninput=()=>rerender();el('newSessionBtn').onclick=()=>location.reload();
 
-function createNode({ role, content, parentId = null, direction = null, tags = [] }) {
-  const id = crypto.randomUUID();
-  const parent = parentId ? nodes.get(parentId) : null;
-  const coordinates = parent && direction ? { x: parent.coordinates.x + OFFSETS[direction].x, y: parent.coordinates.y + OFFSETS[direction].y } : { x: 0, y: 0 };
-  const node = { id, role, content, coordinates, tags, parentId, children: { north: [], east: [], west: [], south: [] } };
-  nodes.set(id, node);
-  if (parent && direction) parent.children[direction].push(id);
-  return node;
-}
-const contextPath = (id) => { const path = []; let c = nodes.get(id); while (c) { path.unshift(c); c = c.parentId ? nodes.get(c.parentId) : null; } return path; };
-function findBranchOrigin(nodeId) { const root = [...nodes.values()].find((n) => !n.parentId); const path = contextPath(nodeId); return path.find((n) => n.parentId === root?.id) || path[1] || path[0]; }
-function focusedContext(nodeId) { const path = contextPath(nodeId); if (path.length <= 2) return path; const origin = findBranchOrigin(nodeId); const idx = path.findIndex((n) => n.id === origin.id); return [path[0], ...path.slice(Math.max(1, idx))]; }
-const buildContext = (nodeId) => (contextMode === 'ancestor' ? contextPath(nodeId) : focusedContext(nodeId));
-const fakeAssistantReply = (path, d) => `NEWS-${d.toUpperCase()} synthesis:\n\nContext mode: ${contextMode}\nIncludes ${path.length} nodes from branch origin + active lane.`;
+canvas.onwheel=(e)=>{if(viewMode!=='map')return;e.preventDefault();camera.zoom=Math.max(.25,Math.min(2.2,camera.zoom+(e.deltaY<0?.07:-.07)));applyCamera();renderMinimap();};let pan=false,last=null;canvas.onmousedown=(e)=>{if(viewMode!=='map')return;if(e.target===canvas){pan=true;last={x:e.clientX,y:e.clientY};}};window.onmouseup=()=>pan=false;window.onmousemove=(e)=>{if(!pan||!last)return;camera.x+=e.clientX-last.x;camera.y+=e.clientY-last.y;last={x:e.clientX,y:e.clientY};applyCamera();renderMinimap();};
 
-const nodeAt = (x, y) => [...nodes.values()].find((n) => n.coordinates.x === x && n.coordinates.y === y) || null;
-const targetFor = (node, direction) => ({ x: node.coordinates.x + OFFSETS[direction].x, y: node.coordinates.y + OFFSETS[direction].y });
-const childAtDirection = (node, direction) => (node.children[direction] || []).map((id) => nodes.get(id)).find(Boolean) || null;
-
-function graphBounds() { const arr = [...nodes.values()]; const xs = arr.map((n) => n.coordinates.x), ys = arr.map((n) => n.coordinates.y); return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs) + TILE_W, maxY: Math.max(...ys) + TILE_H }; }
-function applyCamera() { canvas.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`; edgesSvg.style.transform = canvas.style.transform; }
-function fitToGraph() { const b = graphBounds(); const vw = window.innerWidth - 620, vh = window.innerHeight - 240; const z = Math.max(.25, Math.min(1.4, Math.min(vw / (b.maxX - b.minX + 80), vh / (b.maxY - b.minY + 80)))); camera.zoom = z; camera.x = -(b.minX * z) + 30; camera.y = -(b.minY * z) + 30; applyCamera(); renderMinimap(); }
-function centerOnNode(node) { const rect = document.querySelector('.canvas-wrap').getBoundingClientRect(); const composerH = document.querySelector('.composer').getBoundingClientRect().height; const usableH = rect.height - composerH * 0.15; camera.x = rect.width / 2 - (node.coordinates.x + TILE_W / 2) * camera.zoom; camera.y = usableH / 2 - (node.coordinates.y + TILE_H / 2) * camera.zoom; applyCamera(); renderMinimap(); }
-
-function renderEdges(activeSet) { edgesSvg.innerHTML = ''; for (const n of nodes.values()) { if (!n.parentId) continue; const p = nodes.get(n.parentId); const l = document.createElementNS('http://www.w3.org/2000/svg', 'line'); l.setAttribute('x1', p.coordinates.x + TILE_W / 2); l.setAttribute('y1', p.coordinates.y + TILE_H / 2); l.setAttribute('x2', n.coordinates.x + TILE_W / 2); l.setAttribute('y2', n.coordinates.y + TILE_H / 2); l.setAttribute('class', `edge ${activeSet.has(n.id) && activeSet.has(p.id) ? 'active' : ''}`); edgesSvg.appendChild(l); } }
-
-function renderNodes() {
-  canvas.innerHTML = '';
-  const activeSet = new Set(contextPath(selectedNodeId).map((n) => n.id));
-  const q = el('searchInput').value.trim().toLowerCase();
-  for (const node of nodes.values()) {
-    const frag = template.content.cloneNode(true), card = frag.querySelector('.node');
-    card.classList.add(node.role);
-    card.style.left = `${node.coordinates.x}px`; card.style.top = `${node.coordinates.y}px`;
-    if (q && !`${node.content} ${node.tags.join(' ')}`.toLowerCase().includes(q)) card.style.opacity = '.25';
-    if (node.id === selectedNodeId) card.classList.add('active'); if (activeSet.has(node.id)) card.classList.add('path-node');
-    card.querySelector('.role').textContent = node.role;
-    card.querySelector('.role').classList.add(node.role);
-    card.querySelector('.meta').textContent = `${node.coordinates.x},${node.coordinates.y}`;
-    card.querySelector('.content').textContent = node.content;
-    node.tags.forEach((t) => { const s = document.createElement('span'); s.textContent = t; card.querySelector('.tags').appendChild(s); });
-    card.onclick = () => { selectedNodeId = node.id; updateInspector(); rerender(); };
-    card.querySelectorAll('.branch-arrow').forEach((b) => {
-      const dir = b.dataset.dir, t = targetFor(node, dir), occupant = nodeAt(t.x, t.y), child = childAtDirection(node, dir);
-      b.classList.remove('has-child', 'blocked'); b.disabled = false;
-      if (!occupant) b.title = `Create ${dir} branch`; else if (child && occupant.id === child.id) { b.title = `Go to ${dir} branch`; b.classList.add('has-child'); } else { b.title = 'Blocked: tile occupied'; b.disabled = true; b.classList.add('blocked'); }
-      b.onclick = (e) => { e.stopPropagation(); if (b.disabled) return; selectedDirection = dir; updateBranchUI(); selectedNodeId = occupant && child && occupant.id === child.id ? occupant.id : node.id; updateInspector(); rerender(); };
-    });
-    canvas.appendChild(frag);
-  }
-  canvas.classList.toggle('focus-dim', focusMode);
-  renderEdges(activeSet);
-}
-
-function renderMinimap() {
-  minimap.querySelectorAll('.minidot').forEach((n) => n.remove());
-  if (!minimapOpen) return;
-  const b = graphBounds(), w = b.maxX - b.minX, h = b.maxY - b.minY, sx = 200 / Math.max(w, 1), sy = 120 / Math.max(h, 1);
-  for (const n of nodes.values()) { const d = document.createElement('div'); d.className = 'minidot'; d.style.left = `${10 + (n.coordinates.x - b.minX) * sx}px`; d.style.top = `${10 + (n.coordinates.y - b.minY) * sy}px`; minimap.appendChild(d); }
-  viewport.style.left = `${10 + ((-camera.x / camera.zoom) - b.minX) * sx}px`;
-  viewport.style.top = `${10 + ((-camera.y / camera.zoom) - b.minY) * sy}px`;
-  viewport.style.width = `${(window.innerWidth / camera.zoom) * sx}px`;
-  viewport.style.height = `${(window.innerHeight / camera.zoom) * sy}px`;
-}
-
-function updateBranchUI() { el('branchDirection').textContent = selectedDirection; document.querySelectorAll('#compass button').forEach((b) => b.classList.toggle('active', b.dataset.dir === selectedDirection)); }
-function updateInspector() {
-  const included = buildContext(selectedNodeId), all = contextPath(selectedNodeId), current = nodes.get(selectedNodeId);
-  el('activeNode').textContent = `${current?.role || '—'} · ${selectedDirection}`;
-  el('pathDepth').textContent = String(included.length);
-  el('contextPreview').textContent = `Context rule: ${contextMode}\n\nIncluded:\n${included.map((n, i) => `${i + 1}. ${n.content}`).join('\n')}\n\nExcluded:\n- ${Math.max(0, all.length - included.length)} older path nodes\n- sibling branches unless explicitly referenced`;
-  el('actionBar').textContent = `Replying to: ${current?.content?.slice(0, 35) || 'none'} · Branch: ${selectedDirection} · Context depth: ${included.length}`;
-}
-function rerender() { renderNodes(); applyCamera(); renderMinimap(); onboarding.style.display = [...nodes.values()].some((n) => n.role === 'user') ? 'none' : 'block'; }
-
-el('sendBtn').onclick = () => {
-  const text = el('prompt').value.trim(); if (!text || !selectedNodeId) return;
-  const base = nodes.get(selectedNodeId), t = targetFor(base, selectedDirection), occupant = nodeAt(t.x, t.y), child = childAtDirection(base, selectedDirection);
-  if (occupant && (!child || occupant.id !== child.id)) return;
-  if (occupant && child && occupant.id === child.id) { selectedNodeId = occupant.id; updateInspector(); rerender(); centerOnNode(nodes.get(selectedNodeId)); return; }
-  const user = createNode({ role: 'user', content: text, parentId: selectedNodeId, direction: selectedDirection, tags: [selectedDirection] });
-  const assistant = createNode({ role: 'assistant', content: fakeAssistantReply(buildContext(user.id), selectedDirection), parentId: user.id, direction: selectedDirection, tags: ['auto'] });
-  selectedNodeId = assistant.id; el('prompt').value = ''; updateInspector(); rerender(); centerOnNode(assistant);
-};
-
-document.querySelectorAll('#compass button').forEach((b) => b.onclick = () => { selectedDirection = b.dataset.dir; updateBranchUI(); });
-el('focusBtn').onclick = () => { focusMode = !focusMode; rerender(); };
-el('fitBtn').onclick = () => fitToGraph();
-el('zoomInBtn').onclick = () => { camera.zoom = Math.min(2.2, camera.zoom + .1); applyCamera(); renderMinimap(); };
-el('zoomOutBtn').onclick = () => { camera.zoom = Math.max(.25, camera.zoom - .1); applyCamera(); renderMinimap(); };
-el('searchInput').oninput = () => rerender();
-el('newSessionBtn').onclick = () => location.reload();
-el('toggleMinimapBtn').onclick = () => { minimapOpen = !minimapOpen; minimap.classList.toggle('minimap-collapsed', !minimapOpen); el('toggleMinimapBtn').textContent = minimapOpen ? 'Minimap ▼' : 'Minimap ▶'; renderMinimap(); };
-el('helpBtn').onclick = () => { onboarding.style.display = onboarding.style.display === 'none' ? 'block' : 'none'; };
-
-window.onkeydown = (e) => { const map = { ArrowUp: 'north', ArrowRight: 'east', ArrowLeft: 'west', ArrowDown: 'south' }; if ((e.metaKey || e.ctrlKey) && map[e.key]) { selectedDirection = map[e.key]; updateBranchUI(); } if (e.key === '/' && document.activeElement !== el('searchInput')) { e.preventDefault(); el('searchInput').focus(); } if (e.key.toLowerCase() === 'm') { contextMode = contextMode === 'focused' ? 'ancestor' : 'focused'; updateInspector(); } };
-
-canvas.onwheel = (e) => { e.preventDefault(); camera.zoom = Math.max(.25, Math.min(2.2, camera.zoom + (e.deltaY < 0 ? .07 : -.07))); applyCamera(); renderMinimap(); };
-let pan = false, last = null;
-canvas.onmousedown = (e) => { if (e.target === canvas || e.target === edgesSvg) { pan = true; last = { x: e.clientX, y: e.clientY }; } };
-window.onmouseup = () => pan = false;
-window.onmousemove = (e) => { if (!pan || !last) return; camera.x += e.clientX - last.x; camera.y += e.clientY - last.y; last = { x: e.clientX, y: e.clientY }; applyCamera(); renderMinimap(); };
-
-const root = createNode({ role: 'system', content: 'Root orchestration node', tags: ['root'] });
-const s = createNode({ role: 'assistant', content: 'Primary South lane: architecture plan', parentId: root.id, direction: 'south', tags: ['plan'] });
-createNode({ role: 'assistant', content: 'East lane: UX polish', parentId: root.id, direction: 'east', tags: ['ux'] });
-createNode({ role: 'assistant', content: 'West lane: performance strategy', parentId: root.id, direction: 'west', tags: ['perf'] });
-selectedNodeId = s.id;
-el('threadList').innerHTML = '<li>Gemini-quality Workspace</li><li>NEWS Planning Session</li>';
-updateBranchUI(); updateInspector(); rerender(); centerOnNode(s);
+const root=createNode({role:'system',content:'Root orchestration node',tags:['root']}),s=createNode({role:'assistant',content:'Primary South lane: architecture plan',parentId:root.id,directionFromParent:'south',tags:['plan']});createNode({role:'assistant',content:'East lane: UX polish',parentId:root.id,directionFromParent:'east',tags:['ux']});createNode({role:'assistant',content:'West lane: performance strategy',parentId:root.id,directionFromParent:'west',tags:['perf']});selectedNodeId=s.id;el('threadList').innerHTML='<li>Workspace</li><li>NEWS Session</li>';updateInspector();rerender();
