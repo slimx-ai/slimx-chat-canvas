@@ -1,0 +1,26 @@
+:root{--bg:#0b1020;--panel:#121a2e;--panel2:#17243f;--line:#2f446f;--text:#e8efff;--sub:#9baad4;--accent:#7dd3fc}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+.app{max-width:980px;margin:0 auto;min-height:100vh;display:grid;grid-template-rows:auto 1fr auto;position:relative}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #25365f}
+.topbar h1{margin:0;font-size:1.05rem}
+button,textarea{border:1px solid #334a76;border-radius:10px}button{background:#1a2948;color:#dce8ff;padding:8px 12px;cursor:pointer}
+.chat-window{overflow-y:auto;overflow-x:hidden}
+.message-list{max-width:860px;margin:0 auto;padding:28px 20px 130px}
+.message{position:relative;margin:22px 0}
+.message-card{border-radius:16px;padding:14px 16px;line-height:1.5;border:1px solid #2d4068}
+.message.user{display:flex;justify-content:flex-end}
+.message.user .message-card{max-width:72%;background:var(--panel2)}
+.message.assistant .message-card{max-width:760px;background:transparent;border-color:#2b3d66}
+.side-branch{position:absolute;top:50%;transform:translateY(-50%);opacity:.08;transition:opacity .15s ease;width:32px;height:32px;border-radius:999px;padding:0}
+.message.assistant:hover .side-branch,.message.assistant.active .side-branch{opacity:1}
+.side-branch.left{left:-42px}.side-branch.right{right:-42px}
+.detour-tags{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.detour-tag{border:1px solid var(--line);border-radius:999px;padding:4px 9px;font-size:.78rem;color:var(--sub);background:rgba(255,255,255,.04)}
+.detour-inline{margin-top:8px;display:grid;gap:8px}
+.detour-box{border:1px solid #355083;background:#0f172b;border-radius:10px;padding:10px}
+.composer{position:sticky;bottom:0;background:linear-gradient(to top,#0b1020,#0b1020f2);padding:10px 14px;border-top:1px solid #25365f}
+.branch-hint{font-size:.85rem;color:var(--sub);margin-bottom:6px}.compose-row{display:grid;grid-template-columns:1fr auto;gap:8px}
+textarea{width:100%;padding:10px;background:#0d1427;color:var(--text)}
+.status{min-height:18px;color:#fda4af;font-size:.8rem;margin-top:4px}
+.meta-panel{position:fixed;right:18px;top:64px;width:320px;max-height:70vh;overflow:auto;background:#0f172b;border:1px solid #355083;border-radius:12px;padding:10px}
+.hidden{display:none}
