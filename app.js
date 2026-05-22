@@ -61,7 +61,39 @@ function renderNodes(){
     card.querySelector('.role').textContent=node.role; card.querySelector('.role').classList.add(node.role); card.querySelector('.meta').textContent=`${node.coordinates.x},${node.coordinates.y}`; card.querySelector('.content').textContent=node.content;
     const tags=card.querySelector('.tags'); node.tags.forEach(t=>{const s=document.createElement('span'); s.textContent=t; tags.appendChild(s);});
     card.onclick=()=>{selectedNodeId=node.id; updateInspector(); rerender();}; card.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectedNodeId=node.id;updateInspector();rerender();}};
-    card.querySelectorAll('.branch-arrow').forEach(b=>b.onclick=(e)=>{e.stopPropagation();selectedDirection=b.dataset.dir;updateBranchUI();selectedNodeId=node.id;updateInspector();rerender();});
+    card.querySelectorAll('.branch-arrow').forEach((b) => {
+      const dir = b.dataset.dir;
+      const target = targetFor(node, dir);
+      const occupant = nodeAt(target.x, target.y);
+      const child = childAtDirection(node, dir);
+      b.classList.remove('has-child', 'blocked');
+      b.disabled = false;
+
+      if (!occupant) {
+        b.title = `Create ${dir} branch`;
+      } else if (child && occupant.id === child.id) {
+        b.title = `Go to ${dir} branch`;
+        b.classList.add('has-child');
+      } else {
+        b.title = 'Blocked: tile occupied';
+        b.disabled = true;
+        b.classList.add('blocked');
+      }
+
+      b.onclick = (e) => {
+        e.stopPropagation();
+        if (b.disabled) return;
+        selectedDirection = dir;
+        updateBranchUI();
+        if (occupant && child && occupant.id === child.id) {
+          selectedNodeId = occupant.id;
+        } else {
+          selectedNodeId = node.id;
+        }
+        updateInspector();
+        rerender();
+      };
+    });
     canvas.appendChild(frag);
   }
   canvas.classList.toggle('focus-dim', focusMode); renderEdges(activeSet);
