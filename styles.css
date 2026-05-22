@@ -1,0 +1,55 @@
+:root {
+  --bg: #070910;
+  --panel: #0f1322;
+  --glass: rgba(20, 26, 44, 0.65);
+  --text: #e7ecff;
+  --subtle: #99a7d9;
+  --line: #2d385f;
+  --accent: #7dd3fc;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--text); font-family: Inter, system-ui, sans-serif; background: radial-gradient(circle at 10% 0%, #1a2350, var(--bg) 50%); }
+.shell { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; gap: 12px; padding: 12px; }
+.glass { backdrop-filter: blur(8px); background: var(--glass); border: 1px solid #2a365f; border-radius: 14px; }
+.sidebar { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.brand h1 { margin: 0; }
+.brand p { margin: 4px 0 0; color: var(--subtle); }
+.panel h2 { margin: 0 0 10px; font-size: 1rem; }
+.workspace { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; min-width: 0; }
+.topbar { display:flex; justify-content:space-between; gap:8px; padding:10px; }
+input, textarea, button { border-radius: 10px; border: 1px solid #33406f; }
+input, textarea { width: 100%; background: #0b1020; color: var(--text); padding: 10px; }
+button { cursor:pointer; padding: 9px 12px; }
+.btn-primary { background: linear-gradient(135deg, #7dd3fc, #38bdf8); color:#06202f; font-weight:700; }
+.btn-secondary { background:#18233f; color:var(--text); }
+.canvas-wrap { position: relative; overflow: hidden; min-height: 60vh; }
+#canvas { position:absolute; inset:0; transform-origin: 0 0; background-image: radial-gradient(#2e3c69 1px, transparent 1px); background-size: 24px 24px; }
+.node { position:absolute; width: 320px; min-height: 180px; border:1px solid var(--line); box-shadow: 0 18px 34px rgba(0,0,0,.35); transition: .2s; }
+.node.active { outline: 2px solid var(--accent); }
+.node header { display:flex; justify-content:space-between; color:var(--subtle); font-size:.8rem; }
+.node .inner { height: 100%; padding: 12px; }
+.node .content { margin: 8px 0 10px; white-space: pre-wrap; line-height: 1.35; }
+.node.user { background: linear-gradient(160deg, #10274b 0%, #0f1322 80%); border-color: #37548d; border-radius: 18px 18px 4px 18px; }
+.node.assistant { background: linear-gradient(160deg, #102b21 0%, #0f1322 80%); border-color: #2f6d58; border-radius: 18px 18px 18px 4px; }
+.node.system { background: linear-gradient(160deg, #2a1e4c 0%, #0f1322 80%); border-color: #694ca3; border-radius: 18px; }
+.role.user { color: #93c5fd; } .role.assistant { color:#86efac; } .role.system { color:#ddd6fe; }
+.tags { display:flex; gap:6px; flex-wrap:wrap; }
+.tags span { border:1px solid #3a4a82; border-radius:999px; padding:2px 8px; font-size:.72rem; color:#c8d7ff; }
+.branch-arrow { position:absolute; width:26px; height:26px; border-radius:999px; border:1px solid #3c4f89; background:#1a2645; color:#d6e3ff; display:none; align-items:center; justify-content:center; font-size:14px; }
+.node:hover .branch-arrow { display:flex; }
+.branch-arrow.north { top:-13px; left:50%; transform:translateX(-50%); }
+.branch-arrow.south { bottom:-13px; left:50%; transform:translateX(-50%); }
+.branch-arrow.east { right:-13px; top:50%; transform:translateY(-50%); }
+.branch-arrow.west { left:-13px; top:50%; transform:translateY(-50%); }
+#minimap { position:absolute; right:12px; bottom:12px; width:240px; height:150px; border:1px solid #2f3f70; border-radius:10px; background:#080d18d6; overflow:hidden; }
+.minidot { position:absolute; width:6px; height:6px; border-radius:50%; background:var(--accent); }
+.viewport { position:absolute; border:1px solid #fef08a; background:#fef08a22; }
+.composer { padding: 10px; display:flex; gap:10px; align-items:center; }
+.composer textarea { flex:1; }
+.composer-actions { display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
+.hint { color:var(--subtle); font-size:.8rem; }
+.kv { display:flex; justify-content:space-between; margin:4px 0; color:var(--subtle); }
+#contextPreview { margin-top:8px; max-height:180px; overflow:auto; padding:8px; background:#090e1a; border:1px solid #30406d; border-radius:8px; font-size:.8rem; }
+.thread-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.thread-list li { background:#111a31; border:1px solid #2f3e6f; border-radius:8px; padding:6px 8px; font-size:.85rem; }
+.focus-dim .node:not(.path-node):not(.active) { opacity: .2; filter: grayscale(1); }
