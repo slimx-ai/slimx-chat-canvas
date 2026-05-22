@@ -1,49 +1,8 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SlimX Canvas</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main class="app">
-      <header class="topbar">
-        <h1>SlimX Canvas</h1>
-        <button id="toggleMetaBtn">Context</button>
-      </header>
-
-      <section id="chatWindow" class="chat-window">
-        <div id="messageList" class="message-list"></div>
-      </section>
-
-      <aside id="metaPanel" class="meta-panel hidden">
-        <h2>Context used by AI</h2>
-        <pre id="contextPreview"></pre>
-      </aside>
-
-      <footer class="composer">
-        <div id="branchHint" class="branch-hint">Main thread</div>
-        <div class="compose-row">
-          <textarea id="prompt" rows="2" placeholder="Ask, refine, compare..."></textarea>
-          <button id="sendBtn">Send</button>
-        </div>
-        <div id="statusMsg" class="status"></div>
-      </footer>
-    </main>
-
-    <template id="assistantTemplate">
-      <article class="message assistant">
-        <button class="side-branch left" data-dir="left" title="Alternative detour">←</button>
-        <div class="message-card">
-          <div class="message-content"></div>
-          <div class="detour-tags"></div>
-          <div class="detour-inline"></div>
-        </div>
-        <button class="side-branch right" data-dir="right" title="Expand detour">→</button>
-      </article>
-    </template>
-
-    <script type="module" src="app.js"></script>
-  </body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>SlimX Canvas</title><link rel="stylesheet" href="styles.css" /></head><body>
+<main class="app"><header class="topbar"><h1>SlimX Canvas</h1><button id="toggleMetaBtn">Context</button></header>
+<section id="chatWindow" class="chat-window"><div id="messageList" class="message-list"></div></section>
+<aside id="metaPanel" class="meta-panel hidden"><h2>Context used by AI</h2><pre id="contextPreview"></pre></aside>
+<footer class="composer"><div id="branchHint" class="branch-hint">Main thread</div><div class="compose-row"><textarea id="prompt" rows="2" placeholder="Ask, refine, compare..."></textarea><button id="sendBtn">Send</button></div><div id="statusMsg" class="status"></div></footer></main>
+<template id="assistantTemplate"><article class="message assistant"><button class="side-branch left" data-dir="left" title="Alternative detour">←</button><div class="message-card"><div class="message-content"></div><div class="detour-tags"></div></div><button class="side-branch right" data-dir="right" title="Expand detour">→</button></article></template>
+<template id="branchRowTemplate"><section class="branch-row"><div class="branch-lanes"><div class="branch-lane left-lane"></div><div class="branch-lane main-lane"></div><div class="branch-lane right-lane"></div></div></section></template>
+<script type="module" src="app.js"></script></body></html>
