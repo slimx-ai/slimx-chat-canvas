@@ -11,66 +11,70 @@
       <aside class="sidebar glass">
         <div class="brand">
           <h1>SlimX Canvas</h1>
-          <p>NEWS-native multi-threaded thinking.</p>
+          <p>Branch conversations in four directions.</p>
         </div>
-
         <section class="panel">
-          <h2>Conversation</h2>
+          <h2>Sessions</h2>
           <button id="newSessionBtn" class="btn-secondary">New Session</button>
           <ul id="threadList" class="thread-list"></ul>
-        </section>
-
-        <section class="panel">
-          <h2>Node Inspector</h2>
-          <div class="kv"><span>Active Node</span><strong id="activeNode">—</strong></div>
-          <div class="kv"><span>Direction</span><strong id="branchDirection">south</strong></div>
-          <div class="kv"><span>Depth</span><strong id="pathDepth">0</strong></div>
-          <pre id="contextPreview"></pre>
         </section>
       </aside>
 
       <main class="workspace">
         <header class="topbar glass">
-          <div class="left">
-            <input id="searchInput" type="search" placeholder="Search nodes, tags, content..." />
-          </div>
-          <div class="right">
-            <button id="focusBtn" class="btn-secondary">Focus Mode</button>
-            <button id="fitBtn" class="btn-secondary">Fit to Graph</button>
+          <label class="sr" for="searchInput">Search nodes</label>
+          <input id="searchInput" type="search" placeholder="Search nodes, tags, content..." />
+          <div class="toolbar-actions">
+            <button id="zoomOutBtn" class="btn-secondary">−</button>
+            <button id="zoomInBtn" class="btn-secondary">+</button>
+            <button id="fitBtn" class="btn-secondary">Fit</button>
+            <button id="focusBtn" class="btn-secondary">Path Focus</button>
           </div>
         </header>
 
         <section class="canvas-wrap glass">
+          <svg id="edges" aria-hidden="true"></svg>
           <div id="canvas"></div>
+          <div id="onboarding" class="onboarding">
+            <h3>How SlimX Canvas works</h3>
+            <ol><li>Select a node.</li><li>Pick direction with compass/arrows.</li><li>Type prompt and send.</li><li>Only ancestor context is used.</li></ol>
+          </div>
           <div id="minimap"><div class="viewport"></div></div>
         </section>
 
         <footer class="composer glass">
-          <textarea id="prompt" rows="2" placeholder="Ask, branch, refine, compare..."></textarea>
-          <div class="composer-actions">
-            <div class="hint">Shortcut: Cmd/Ctrl + Arrow Keys to change NEWS branch.</div>
+          <div id="actionBar" class="action-bar" aria-live="polite"></div>
+          <div class="compose-row">
+            <label class="sr" for="prompt">Prompt</label>
+            <textarea id="prompt" rows="2" placeholder="Ask, refine, compare..."></textarea>
+            <div class="compass" id="compass">
+              <button data-dir="north">↑</button><button data-dir="west">←</button><button data-dir="east">→</button><button data-dir="south">↓</button>
+            </div>
             <button id="sendBtn" class="btn-primary">Send</button>
           </div>
         </footer>
       </main>
+
+      <aside class="inspector glass">
+        <h2>Selected context</h2>
+        <div class="kv"><span>Node</span><strong id="activeNode">—</strong></div>
+        <div class="kv"><span>Branch</span><strong id="branchDirection">south</strong></div>
+        <div class="kv"><span>Depth</span><strong id="pathDepth">0</strong></div>
+        <pre id="contextPreview"></pre>
+      </aside>
     </div>
 
     <template id="nodeTemplate">
-      <article class="node">
+      <article class="node" tabindex="0">
         <div class="inner">
-          <header>
-            <span class="role"></span>
-            <span class="meta"></span>
-          </header>
+          <header><span class="role"></span><span class="meta"></span></header>
           <p class="content"></p>
-          <footer>
-            <div class="tags"></div>
-          </footer>
+          <footer><div class="tags"></div></footer>
         </div>
-        <button class="branch-arrow north" data-dir="north" aria-label="branch north">↑</button>
-        <button class="branch-arrow east" data-dir="east" aria-label="branch east">→</button>
-        <button class="branch-arrow west" data-dir="west" aria-label="branch west">←</button>
-        <button class="branch-arrow south" data-dir="south" aria-label="branch south">↓</button>
+        <button class="branch-arrow north" data-dir="north">↑</button>
+        <button class="branch-arrow east" data-dir="east">→</button>
+        <button class="branch-arrow west" data-dir="west">←</button>
+        <button class="branch-arrow south" data-dir="south">↓</button>
       </article>
     </template>
 
