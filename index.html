@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SlimX Chat Canvas</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar glass">
+        <div class="brand">
+          <h1>SlimX Canvas</h1>
+          <p>NEWS-native multi-threaded thinking.</p>
+        </div>
+
+        <section class="panel">
+          <h2>Conversation</h2>
+          <button id="newSessionBtn" class="btn-secondary">New Session</button>
+          <ul id="threadList" class="thread-list"></ul>
+        </section>
+
+        <section class="panel">
+          <h2>Node Inspector</h2>
+          <div class="kv"><span>Active Node</span><strong id="activeNode">—</strong></div>
+          <div class="kv"><span>Direction</span><strong id="branchDirection">south</strong></div>
+          <div class="kv"><span>Depth</span><strong id="pathDepth">0</strong></div>
+          <pre id="contextPreview"></pre>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar glass">
+          <div class="left">
+            <input id="searchInput" type="search" placeholder="Search nodes, tags, content..." />
+          </div>
+          <div class="right">
+            <button id="focusBtn" class="btn-secondary">Focus Mode</button>
+            <button id="fitBtn" class="btn-secondary">Fit to Graph</button>
+          </div>
+        </header>
+
+        <section class="canvas-wrap glass">
+          <div id="canvas"></div>
+          <div id="minimap"><div class="viewport"></div></div>
+        </section>
+
+        <footer class="composer glass">
+          <textarea id="prompt" rows="2" placeholder="Ask, branch, refine, compare..."></textarea>
+          <div class="composer-actions">
+            <div class="hint">Shortcut: Cmd/Ctrl + Arrow Keys to change NEWS branch.</div>
+            <button id="sendBtn" class="btn-primary">Send</button>
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <template id="nodeTemplate">
+      <article class="node">
+        <header>
+          <span class="role"></span>
+          <span class="meta"></span>
+        </header>
+        <p class="content"></p>
+        <footer>
+          <div class="tags"></div>
+          <div class="branch-controls">
+            <button data-dir="north">N</button>
+            <button data-dir="east">E</button>
+            <button data-dir="west">W</button>
+            <button data-dir="south">S</button>
+          </div>
+        </footer>
+      </article>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
