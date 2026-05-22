@@ -12,3 +12,5 @@ input,textarea,button{border-radius:10px;border:1px solid #33406f}input,textarea
 .composer{padding:10px}.action-bar{font-size:.85rem;color:var(--subtle);margin-bottom:8px}.compose-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}.compass{display:grid;grid-template-columns:repeat(2,44px);gap:4px}.compass button{width:44px;height:44px}.compass .active{outline:2px solid var(--accent)}
 .onboarding{position:absolute;left:16px;top:16px;background:#0d152bcc;padding:10px;border:1px solid #30406d;border-radius:10px;max-width:280px}.kv{display:flex;justify-content:space-between;color:var(--subtle)}#contextPreview{max-height:220px;overflow:auto;padding:8px;background:#090e1a;border:1px solid #30406d;border-radius:8px}.thread-list{list-style:none;padding:0}.sr{position:absolute;left:-9999px}
 .focus-dim .node:not(.path-node):not(.active){opacity:.2}
+
+.branch-arrow:disabled{opacity:.25;cursor:not-allowed}.branch-arrow.has-child{background:#233765;border-color:#7dd3fc}.branch-arrow.blocked{background:#2a1b25;border-color:#6b263d}
