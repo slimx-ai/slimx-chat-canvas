@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SlimX Chat Canvas</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar glass collapsed" id="sidebar">
+        <button id="toggleSidebarBtn" class="btn-secondary">☰</button>
+        <div class="sidebar-body">
+          <h1>SlimX</h1>
+          <button id="newSessionBtn" class="btn-secondary">New Session</button>
+          <ul id="threadList" class="thread-list"></ul>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar glass">
+          <input id="searchInput" type="search" placeholder="Search..." />
+          <div class="toolbar-actions">
+            <button id="viewModeBtn" class="btn-secondary">Map</button>
+            <button id="fitBtn" class="btn-secondary">Fit</button>
+            <button id="focusBtn" class="btn-secondary">Path</button>
+            <button id="contextToggleBtn" class="btn-secondary">Context ▸</button>
+          </div>
+        </header>
+
+        <section class="canvas-wrap glass focused-chat" id="canvasWrap">
+          <svg id="edges" aria-hidden="true"></svg>
+          <div id="canvas"></div>
+          <div id="chatLane" class="chat-lane"></div>
+          <div id="onboarding" class="onboarding"><h3>How SlimX works</h3><p>Chat first. Branch as detours when needed.</p></div>
+          <div id="minimap" class="minimap-collapsed"><div class="viewport"></div></div>
+        </section>
+
+        <footer class="composer glass">
+          <div id="actionBar" class="action-bar"></div>
+          <div class="mode-row">
+            <span>Context mode</span>
+            <button class="ctx-btn active" data-ctx="focused">Focused</button>
+            <button class="ctx-btn" data-ctx="ancestor">Ancestor</button>
+          </div>
+          <div class="detour-row" id="compass">
+            <button data-dir="north">↑ North</button>
+            <button data-dir="east">→ East</button>
+            <button data-dir="south">↓ South</button>
+            <button data-dir="west">← West</button>
+          </div>
+          <div class="compose-row">
+            <textarea id="prompt" rows="2" placeholder="Ask, refine, compare..."></textarea>
+            <button id="sendBtn" class="btn-primary">Send</button>
+          </div>
+          <div id="statusMsg" class="status"></div>
+        </footer>
+      </main>
+
+      <aside class="inspector glass hidden" id="inspector">
+        <h2>Context used by AI</h2>
+        <div class="kv"><span>Node</span><strong id="activeNode">—</strong></div>
+        <div class="kv"><span>Branch</span><strong id="branchDirection">south</strong></div>
+        <div class="kv"><span>Depth</span><strong id="pathDepth">0</strong></div>
+        <pre id="contextPreview"></pre>
+      </aside>
+    </div>
+
+    <template id="nodeTemplate">
+      <article class="node" tabindex="0">
+        <div class="inner"><header><span class="role"></span><span class="meta"></span></header><p class="content"></p><footer><div class="tags"></div></footer></div>
+        <button class="branch-arrow north" data-dir="north">↑</button>
+        <button class="branch-arrow east" data-dir="east">→</button>
+        <button class="branch-arrow west" data-dir="west">←</button>
+        <button class="branch-arrow south" data-dir="south">↓</button>
+      </article>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
