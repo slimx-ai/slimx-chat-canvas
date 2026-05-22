@@ -1,4 +1,7 @@
-const STEP = 360;
+const TILE_W = 320;
+const TILE_H = 180;
+const STEP_X = TILE_W;
+const STEP_Y = TILE_H;
 const canvas = document.getElementById('canvas');
 const minimap = document.getElementById('minimap');
 const viewport = minimap.querySelector('.viewport');
@@ -15,7 +18,7 @@ let selectedNodeId = null;
 let selectedDirection = 'south';
 let focusMode = false;
 let camera = { x: 620, y: 300, zoom: 0.8 };
-const OFFSETS = { north: { x: 0, y: -STEP }, south: { x: 0, y: STEP }, east: { x: STEP, y: 0 }, west: { x: -STEP, y: 0 } };
+const OFFSETS = { north: { x: 0, y: -STEP_Y }, south: { x: 0, y: STEP_Y }, east: { x: STEP_X, y: 0 }, west: { x: -STEP_X, y: 0 } };
 
 function createNode({ role, content, parentId = null, direction = null, tags = [] }) {
   const id = crypto.randomUUID();
@@ -24,16 +27,7 @@ function createNode({ role, content, parentId = null, direction = null, tags = [
   const node = { id, role, content, coordinates, tags, parentId, children: { north: null, east: null, west: null, south: null } };
   nodes.set(id, node);
   if (parent && direction) parent.children[direction] = id;
-  avoidOverlap(node);
   return node;
-}
-
-function avoidOverlap(candidate) {
-  for (const n of nodes.values()) {
-    if (n.id === candidate.id) continue;
-    const close = Math.abs(n.coordinates.x - candidate.coordinates.x) < 300 && Math.abs(n.coordinates.y - candidate.coordinates.y) < 200;
-    if (close) n.coordinates.x += 120;
-  }
 }
 
 function contextPath(nodeId) {
@@ -95,7 +89,7 @@ function render() {
     node.tags.forEach((t) => { const s = document.createElement('span'); s.textContent = t; tags.appendChild(s); });
 
     card.onclick = () => { selectedNodeId = node.id; updateInspector(); render(); };
-    card.querySelectorAll('.branch-controls button').forEach((b) => {
+    card.querySelectorAll('.branch-arrow').forEach((b) => {
       b.onclick = (e) => { e.stopPropagation(); selectedDirection = b.dataset.dir; directionLabel.textContent = selectedDirection; selectedNodeId = node.id; updateInspector(); render(); };
     });
     canvas.appendChild(frag);
@@ -108,10 +102,9 @@ function render() {
 document.getElementById('sendBtn').onclick = () => {
   const text = promptInput.value.trim();
   if (!text || !selectedNodeId) return;
-  const base = nodes.get(selectedNodeId).children[selectedDirection] || selectedNodeId;
-  const userNode = createNode({ role: 'user', content: text, parentId: base, direction: selectedDirection });
+  const userNode = createNode({ role: 'user', content: text, parentId: selectedNodeId, direction: selectedDirection });
   const path = contextPath(userNode.id);
-  const assistant = createNode({ role: 'assistant', content: fakeAssistantReply(path, selectedDirection), parentId: userNode.id, direction: 'south', tags: [selectedDirection, 'auto'] });
+  const assistant = createNode({ role: 'assistant', content: fakeAssistantReply(path, selectedDirection), parentId: userNode.id, direction: selectedDirection, tags: [selectedDirection, 'auto'] });
   selectedNodeId = assistant.id;
   promptInput.value = '';
   updateInspector();
@@ -139,8 +132,8 @@ window.onmousemove = (e) => { if (!panning || !last) return; camera.x += e.clien
 
 const root = createNode({ role: 'system', content: 'Root orchestration node. Branch with NEWS controls to explore independent angles.', tags: ['root', 'strategy'] });
 const seedA = createNode({ role: 'assistant', content: 'Primary South lane: architecture and execution plan.', parentId: root.id, direction: 'south', tags: ['plan'] });
-createNode({ role: 'assistant', content: 'East lane: UX polish and interaction model.', parentId: seedA.id, direction: 'east', tags: ['ux'] });
-createNode({ role: 'assistant', content: 'West lane: performance and scaling strategy.', parentId: seedA.id, direction: 'west', tags: ['perf'] });
+createNode({ role: 'assistant', content: 'East lane: UX polish and interaction model.', parentId: root.id, direction: 'east', tags: ['ux'] });
+createNode({ role: 'assistant', content: 'West lane: performance and scaling strategy.', parentId: root.id, direction: 'west', tags: ['perf'] });
 selectedNodeId = seedA.id;
 
 document.getElementById('threadList').innerHTML = '<li>Gemini-quality Workspace</li><li>NEWS Planning Session</li>';

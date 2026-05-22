@@ -57,20 +57,20 @@
 
     <template id="nodeTemplate">
       <article class="node">
-        <header>
-          <span class="role"></span>
-          <span class="meta"></span>
-        </header>
-        <p class="content"></p>
-        <footer>
-          <div class="tags"></div>
-          <div class="branch-controls">
-            <button data-dir="north">N</button>
-            <button data-dir="east">E</button>
-            <button data-dir="west">W</button>
-            <button data-dir="south">S</button>
-          </div>
-        </footer>
+        <div class="inner">
+          <header>
+            <span class="role"></span>
+            <span class="meta"></span>
+          </header>
+          <p class="content"></p>
+          <footer>
+            <div class="tags"></div>
+          </footer>
+        </div>
+        <button class="branch-arrow north" data-dir="north" aria-label="branch north">↑</button>
+        <button class="branch-arrow east" data-dir="east" aria-label="branch east">→</button>
+        <button class="branch-arrow west" data-dir="west" aria-label="branch west">←</button>
+        <button class="branch-arrow south" data-dir="south" aria-label="branch south">↓</button>
       </article>
     </template>
 
