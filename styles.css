@@ -14,3 +14,5 @@ input,textarea,button{border-radius:10px;border:1px solid #33406f}input,textarea
 .focus-dim .node:not(.path-node):not(.active){opacity:.2}
 
 .branch-arrow:disabled{opacity:.25;cursor:not-allowed}.branch-arrow.has-child{background:#233765;border-color:#7dd3fc}.branch-arrow.blocked{background:#2a1b25;border-color:#6b263d}
+
+.compass-wrap{display:flex;flex-direction:column;gap:6px}.branch-label{font-size:.8rem;color:var(--subtle)}.compass{grid-template-columns:repeat(2,88px)}.compass button{height:42px;font-size:.85rem}.node.user{min-height:100px}.minimap-collapsed{height:28px!important;width:120px!important}.minimap-collapsed .viewport,.minimap-collapsed .minidot{display:none}

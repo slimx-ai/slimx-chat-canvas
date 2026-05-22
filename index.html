@@ -28,7 +28,7 @@
             <button id="zoomOutBtn" class="btn-secondary">−</button>
             <button id="zoomInBtn" class="btn-secondary">+</button>
             <button id="fitBtn" class="btn-secondary">Fit</button>
-            <button id="focusBtn" class="btn-secondary">Path Focus</button>
+            <button id="focusBtn" class="btn-secondary">Path Focus</button><button id="toggleMinimapBtn" class="btn-secondary">Minimap ▼</button><button id="helpBtn" class="btn-secondary">?</button>
           </div>
         </header>
 
@@ -47,9 +47,7 @@
           <div class="compose-row">
             <label class="sr" for="prompt">Prompt</label>
             <textarea id="prompt" rows="2" placeholder="Ask, refine, compare..."></textarea>
-            <div class="compass" id="compass">
-              <button data-dir="north">↑</button><button data-dir="west">←</button><button data-dir="east">→</button><button data-dir="south">↓</button>
-            </div>
+            <div class="compass-wrap"><div class="branch-label">Branch direction</div><div class="compass" id="compass"><button data-dir="north">↑ North</button><button data-dir="east">→ East</button><button data-dir="south">↓ South</button><button data-dir="west">← West</button></div></div>
             <button id="sendBtn" class="btn-primary">Send</button>
           </div>
         </footer>
