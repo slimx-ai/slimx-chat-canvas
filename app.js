@@ -41,24 +41,6 @@ function buildContext(nodeId){
   return contextMode === 'ancestor' ? contextPath(nodeId) : focusedContext(nodeId);
 }
 
-
-function nodeAt(x, y){
-  for (const n of nodes.values()) {
-    if (n.coordinates.x === x && n.coordinates.y === y) return n;
-  }
-  return null;
-}
-
-function targetFor(node, direction){
-  const o = OFFSETS[direction];
-  return { x: node.coordinates.x + o.x, y: node.coordinates.y + o.y };
-}
-
-function childAtDirection(node, direction){
-  const ids = node.children[direction] || [];
-  return ids.map((id) => nodes.get(id)).find(Boolean) || null;
-}
-
 nodes from branch origin + active lane.`;
 
 function graphBounds(){const arr=[...nodes.values()]; const xs=arr.map(n=>n.coordinates.x), ys=arr.map(n=>n.coordinates.y); return {minX:Math.min(...xs),minY:Math.min(...ys),maxX:Math.max(...xs)+TILE_W,maxY:Math.max(...ys)+TILE_H};}
@@ -122,7 +104,7 @@ function updateBranchUI(){ el('branchDirection').textContent=selectedDirection; 
 function updateInspector(){const p=buildContext(selectedNodeId); el('activeNode').textContent=selectedNodeId?.slice(0,8)||'—'; el('pathDepth').textContent=String(p.length); el('contextPreview').textContent=p.map(n=>`${n.role}> ${n.content}`).join('\n\n'); const t=nodes.get(selectedNodeId); const totalAncestors=contextPath(selectedNodeId).length; const excluded=Math.max(0,totalAncestors-p.length); el('actionBar').textContent=`Context: ${contextMode} · Includes: ${p.length} nodes · Excludes: ${excluded} older/sibling path nodes · Branch: ${selectedDirection}`;}
 function rerender(){renderNodes();applyCamera();renderMinimap();}
 
-el('sendBtn').onclick=()=>{const text=el('prompt').value.trim(); if(!text||!selectedNodeId) return; const base = nodes.get(selectedNodeId); const t = targetFor(base, selectedDirection); const occupant = nodeAt(t.x, t.y); const child = childAtDirection(base, selectedDirection); if (occupant && (!child || occupant.id !== child.id)) return; if (occupant && child && occupant.id === child.id) { selectedNodeId = occupant.id; updateInspector(); rerender(); return; } const u=createNode({role:'user',content:text,parentId:selectedNodeId,direction:selectedDirection,tags:[selectedDirection]}); const a=createNode({role:'assistant',content:fakeAssistantReply(buildContext(u.id),selectedDirection),parentId:u.id,direction:selectedDirection,tags:['auto']}); selectedNodeId=a.id; el('prompt').value=''; updateInspector(); rerender();};
+el('sendBtn').onclick=()=>{const text=el('prompt').value.trim(); if(!text||!selectedNodeId) return; const u=createNode({role:'user',content:text,parentId:selectedNodeId,direction:selectedDirection,tags:[selectedDirection]}); const a=createNode({role:'assistant',content:fakeAssistantReply(buildContext(u.id),selectedDirection),parentId:u.id,direction:selectedDirection,tags:['auto']}); selectedNodeId=a.id; el('prompt').value=''; updateInspector(); rerender();};
 el('focusBtn').onclick=()=>{focusMode=!focusMode; rerender();}; el('fitBtn').onclick=()=>fitToGraph();
 el('zoomInBtn').onclick=()=>{camera.zoom=Math.min(2.2,camera.zoom+.1);applyCamera();renderMinimap();}; el('zoomOutBtn').onclick=()=>{camera.zoom=Math.max(.25,camera.zoom-.1);applyCamera();renderMinimap();};
 el('searchInput').oninput=()=>rerender(); el('newSessionBtn').onclick=()=>location.reload();
