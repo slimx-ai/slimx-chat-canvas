@@ -12,8 +12,7 @@
   --accent: #10a37f;
   --danger: #b42318;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-  --branch-btn-size: 34px;
-  --branch-card-side-gap: 54px;
+  --branch-card-side-gap: 96px;
 }
 
 * {
@@ -120,6 +119,10 @@ button {
   word-break: break-word;
 }
 
+.message-content {
+  min-width: 0;
+}
+
 .message.user {
   display: flex;
   justify-content: flex-end;
@@ -143,7 +146,8 @@ button {
 }
 
 .message.assistant.branchable .message-card {
-  margin: 0 var(--branch-card-side-gap);
+  margin-left: var(--branch-card-side-gap);
+  margin-right: 0;
 }
 
 .branch-row {
@@ -155,49 +159,49 @@ button {
 
 .branch-lanes {
   display: flex;
-  width: 300%;
+  width: 200%;
   transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
 
 .branch-lane {
-  flex: 0 0 33.333333%;
+  flex: 0 0 50%;
   min-width: 0;
   padding: 0 4px;
 }
 
-.branch-row[data-active="left"] .branch-lanes {
+.branch-row[data-active="detour"] .branch-lanes {
   transform: translateX(0);
 }
 
 .branch-row[data-active="main"] .branch-lanes {
-  transform: translateX(-33.333333%);
+  transform: translateX(-50%);
 }
 
-.branch-row[data-active="right"] .branch-lanes {
-  transform: translateX(-66.666666%);
-}
-
-.side-branch {
+.deep-branch {
   position: absolute;
+  left: 8px;
   top: 50%;
   z-index: 5;
-  width: var(--branch-btn-size);
-  height: var(--branch-btn-size);
-  padding: 0;
+  max-width: 78px;
+  min-height: 34px;
+  padding: 7px 10px;
   transform: translateY(-50%);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  opacity: 0.55;
-  transition: opacity 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
+  font-size: 0.76rem;
+  line-height: 1.05;
+  opacity: 0.72;
+  transition: opacity 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease, border-color 150ms ease;
 }
-.side-branch[data-has-detour="true"]::after {
+
+.deep-branch[data-has-detour="true"]::after {
   content: "";
   position: absolute;
-  right: 5px;
+  right: 6px;
   top: 5px;
   width: 6px;
   height: 6px;
@@ -205,23 +209,16 @@ button {
   background: var(--accent);
 }
 
-.side-branch.left {
-  left: 8px;
-}
-
-.side-branch.right {
-  right: 8px;
-}
-
-.message.assistant.branchable:hover .side-branch,
-.side-branch:focus-visible {
+.message.assistant.branchable:hover .deep-branch,
+.deep-branch:focus-visible {
   opacity: 1;
 }
 
-.side-branch:hover {
+.deep-branch:hover {
   background: var(--surface-soft);
+  border-color: var(--line-strong);
   color: var(--text);
-  transform: translateY(-50%) scale(1.04);
+  transform: translateY(-50%) scale(1.03);
 }
 
 .detour-tags {
@@ -249,12 +246,11 @@ button {
 
 .detour-tag:hover {
   background: var(--surface-hover);
-  color: var(--text);
   border-color: var(--line-strong);
+  color: var(--text);
 }
 
-.left-lane,
-.right-lane {
+.detour-lane {
   background: var(--detour-bg);
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -406,6 +402,7 @@ textarea:focus {
   color: var(--danger);
   font-size: 0.8rem;
 }
+
 .copy-btn {
   margin-top: 8px;
   border: 1px solid var(--line);
@@ -414,32 +411,6 @@ textarea:focus {
   color: var(--muted);
   padding: 4px 10px;
   font-size: 0.75rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121214;
-    --surface: #1a1a1f;
-    --surface-soft: #202027;
-    --surface-hover: #292933;
-    --user-bg: #252530;
-    --detour-bg: #181821;
-    --text: #f5f5f7;
-    --muted: #a8acb8;
-    --line: #2f3340;
-    --line-strong: #414757;
-    --danger: #ff8f8f;
-    --shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
-  }
-  .topbar {
-    background: rgba(20, 20, 24, 0.9);
-  }
-  .composer {
-    background: linear-gradient(to top, #121214 82%, rgba(18, 18, 20, 0));
-  }
-  #sendBtn:hover {
-    background: #3a3a3a;
-  }
 }
 
 .meta-panel {
@@ -494,7 +465,40 @@ textarea:focus {
   border: 0;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121214;
+    --surface: #1a1a1f;
+    --surface-soft: #202027;
+    --surface-hover: #292933;
+    --user-bg: #252530;
+    --detour-bg: #181821;
+    --text: #f5f5f7;
+    --muted: #a8acb8;
+    --line: #2f3340;
+    --line-strong: #414757;
+    --danger: #ff8f8f;
+    --shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+  }
+
+  .topbar {
+    background: rgba(20, 20, 24, 0.9);
+  }
+
+  .composer {
+    background: linear-gradient(to top, #121214 82%, rgba(18, 18, 20, 0));
+  }
+
+  #sendBtn:hover {
+    background: #3a3a3a;
+  }
+}
+
 @media (max-width: 720px) {
+  :root {
+    --branch-card-side-gap: 82px;
+  }
+
   .topbar p {
     display: none;
   }
@@ -503,20 +507,13 @@ textarea:focus {
     padding-inline: 14px;
   }
 
-  .message.assistant.branchable .message-card {
-    margin: 0 42px;
-  }
-
-  .side-branch.left {
+  .deep-branch {
     left: 0;
+    max-width: 72px;
+    padding-inline: 8px;
   }
 
-  .side-branch.right {
-    right: 0;
-  }
-
-  .left-lane,
-  .right-lane {
+  .detour-lane {
     padding: 12px;
   }
 }

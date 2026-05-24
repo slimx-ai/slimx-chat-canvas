@@ -11,7 +11,7 @@
       <header class="topbar">
         <div>
           <h1>SlimX Canvas</h1>
-          <p>Vertical chat with horizontal detours from any assistant answer.</p>
+          <p>Vertical chat with persistent horizontal deep dives from any assistant answer.</p>
         </div>
         <button id="toggleMetaBtn" class="ghost-btn" type="button">Context</button>
       </header>
@@ -46,21 +46,19 @@
 
     <template id="assistantTemplate">
       <article class="message assistant branchable">
+        <button class="deep-branch" type="button" title="Dig deeper from this answer" aria-label="Dig deeper from this answer">Dig deeper</button>
         <div class="message-card">
           <div class="message-content"></div>
-          <div class="detour-tags" aria-label="Collapsed detours"></div>
+          <div class="detour-tags" aria-label="Collapsed deep dives"></div>
         </div>
-        <button class="side-branch left" data-dir="left" type="button" title="Open alternative detour" aria-label="Open alternative detour">←</button>
-        <button class="side-branch right" data-dir="right" type="button" title="Open expansion detour" aria-label="Open expansion detour">→</button>
       </article>
     </template>
 
     <template id="branchRowTemplate">
       <section class="branch-row" data-active="main">
         <div class="branch-lanes">
-          <section class="branch-lane left-lane" aria-label="Alternative detour"></section>
+          <section class="branch-lane detour-lane" aria-label="Deep dive"></section>
           <section class="branch-lane main-lane" aria-label="Main message"></section>
-          <section class="branch-lane right-lane" aria-label="Expansion detour"></section>
         </div>
       </section>
     </template>
