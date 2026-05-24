@@ -12,6 +12,8 @@
   --accent: #10a37f;
   --danger: #b42318;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  --branch-btn-size: 34px;
+  --branch-card-side-gap: 54px;
 }
 
 * {
@@ -141,7 +143,7 @@ button {
 }
 
 .message.assistant.branchable .message-card {
-  margin: 0 54px;
+  margin: 0 var(--branch-card-side-gap);
 }
 
 .branch-row {
@@ -180,8 +182,8 @@ button {
   position: absolute;
   top: 50%;
   z-index: 5;
-  width: 34px;
-  height: 34px;
+  width: var(--branch-btn-size);
+  height: var(--branch-btn-size);
   padding: 0;
   transform: translateY(-50%);
   border: 1px solid var(--line);
@@ -191,6 +193,16 @@ button {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   opacity: 0.55;
   transition: opacity 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
+}
+.side-branch[data-has-detour="true"]::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
 .side-branch.left {
@@ -273,11 +285,12 @@ button {
   grid-area: title;
   color: var(--text);
   font-size: 0.9rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .detour-origin {
   grid-area: origin;
+  grid-column: 1 / -1;
   color: var(--muted);
   font-size: 0.82rem;
   overflow: hidden;
@@ -357,7 +370,7 @@ textarea {
   min-height: 52px;
   max-height: 180px;
   width: 100%;
-  resize: vertical;
+  resize: none;
   border: 1px solid var(--line-strong);
   border-radius: 24px;
   background: var(--surface);
@@ -380,7 +393,7 @@ textarea:focus {
   background: var(--text);
   color: #ffffff;
   padding: 0 18px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 #sendBtn:hover {
@@ -392,6 +405,41 @@ textarea:focus {
   margin-top: 5px;
   color: var(--danger);
   font-size: 0.8rem;
+}
+.copy-btn {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121214;
+    --surface: #1a1a1f;
+    --surface-soft: #202027;
+    --surface-hover: #292933;
+    --user-bg: #252530;
+    --detour-bg: #181821;
+    --text: #f5f5f7;
+    --muted: #a8acb8;
+    --line: #2f3340;
+    --line-strong: #414757;
+    --danger: #ff8f8f;
+    --shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+  }
+  .topbar {
+    background: rgba(20, 20, 24, 0.9);
+  }
+  .composer {
+    background: linear-gradient(to top, #121214 82%, rgba(18, 18, 20, 0));
+  }
+  #sendBtn:hover {
+    background: #3a3a3a;
+  }
 }
 
 .meta-panel {

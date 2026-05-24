@@ -12,7 +12,10 @@ const backToMainBtn = el('backToMainBtn');
 
 const MAIN_LANE_ID = 'main';
 const messages = [];
+const messagesById = new Map();
 const lanes = new Map();
+const renderedMainMessageIds = new Set();
+const branchRowByOriginId = new Map();
 
 const session = {
   id: crypto.randomUUID(),
@@ -30,12 +33,14 @@ lanes.set(MAIN_LANE_ID, {
   collapsed: false,
 });
 
-let activeLaneId = MAIN_LANE_ID;
-let activeOriginMessageId = null;
-let activeDirection = 'main';
+const state = {
+  activeLaneId: MAIN_LANE_ID,
+  activeOriginMessageId: null,
+  activeDirection: 'main',
+};
 
 const uid = () => crypto.randomUUID();
-const msgById = (id) => messages.find((message) => message.id === id) || null;
+const msgById = (id) => messagesById.get(id) || null;
 const laneById = (id) => lanes.get(id) || null;
 
 function directionLabel(direction) {
@@ -64,8 +69,9 @@ function getOriginRow(originMessageId) {
 }
 
 function activeLane() {
-  return laneById(activeLaneId) || laneById(MAIN_LANE_ID);
+  return laneById(state.activeLaneId) || laneById(MAIN_LANE_ID);
 }
+function transition(patch) { Object.assign(state, patch); }
 
 function buildContextMessages() {
   const lane = activeLane();
@@ -81,7 +87,7 @@ function buildContextMessages() {
 
 function updateContextPreview() {
   const ctx = buildContextMessages();
-  const rule = activeLaneId === MAIN_LANE_ID
+  const rule = state.activeLaneId === MAIN_LANE_ID
     ? 'main thread history'
     : 'origin assistant answer + active detour history';
 
@@ -103,7 +109,7 @@ function updateBranchHint() {
   }
 
   const origin = msgById(lane.originMessageId);
-  const originSnippet = origin?.content?.slice(0, 56) || 'selected answer';
+  const originSnippet = origin?.content?.slice(0, 60) || 'selected answer';
   branchHint.textContent = `${directionLabel(lane.direction)} detour from: ${originSnippet}`;
   backToMainBtn.classList.remove('hidden');
   promptEl.placeholder = lane.direction === 'left'
@@ -124,6 +130,10 @@ function makeMessage({ role, content, laneId, parentId = null }) {
     parentId,
     createdAt: Date.now(),
   };
+}
+function addMessage(message) {
+  messages.push(message);
+  messagesById.set(message.id, message);
 }
 
 function makeFakeAssistantReply(text, lane) {
@@ -153,12 +163,10 @@ function createOrOpenDetour(originMessageId, direction) {
     lanes.set(lane.id, lane);
   }
 
-  activeLaneId = lane.id;
-  activeOriginMessageId = originMessageId;
-  activeDirection = direction;
+  transition({ activeLaneId: lane.id, activeOriginMessageId: originMessageId, activeDirection: direction });
   lane.collapsed = false;
 
-  showStatus('');
+  showStatus(`${directionLabel(direction)} detour opened.`);
   render();
   updateBranchHint();
 
@@ -172,12 +180,10 @@ function openLane(laneId) {
   const lane = laneById(laneId);
   if (!lane || lane.id === MAIN_LANE_ID) return;
 
-  activeLaneId = lane.id;
-  activeOriginMessageId = lane.originMessageId;
-  activeDirection = lane.direction;
+  transition({ activeLaneId: lane.id, activeOriginMessageId: lane.originMessageId, activeDirection: lane.direction });
   lane.collapsed = false;
 
-  showStatus('');
+  showStatus(`Now viewing ${directionLabel(lane.direction).toLowerCase()} detour.`);
   render();
   updateBranchHint();
 
@@ -191,9 +197,7 @@ function returnToMain() {
   const lane = activeLane();
   if (lane && lane.id !== MAIN_LANE_ID) lane.collapsed = true;
 
-  activeLaneId = MAIN_LANE_ID;
-  activeOriginMessageId = null;
-  activeDirection = 'main';
+  transition({ activeLaneId: MAIN_LANE_ID, activeOriginMessageId: null, activeDirection: 'main' });
 
   showStatus('');
   render();
@@ -208,6 +212,17 @@ function createMessageElement(message, options = {}) {
   const card = document.createElement('div');
   card.className = 'message-card';
   card.textContent = message.content;
+  if (message.role === 'assistant') {
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-btn';
+    copyBtn.type = 'button';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(message.content);
+      showStatus('Copied response to clipboard.');
+    });
+    card.appendChild(copyBtn);
+  }
   article.appendChild(card);
   return article;
 }
@@ -249,6 +264,8 @@ function renderMainAssistantLane(container, message) {
 
   const leftButton = article.querySelector('.side-branch.left');
   const rightButton = article.querySelector('.side-branch.right');
+  if (findDetour(message.id, 'left')) leftButton.dataset.hasDetour = 'true';
+  if (findDetour(message.id, 'right')) rightButton.dataset.hasDetour = 'true';
   leftButton.addEventListener('click', () => createOrOpenDetour(message.id, 'left'));
   rightButton.addEventListener('click', () => createOrOpenDetour(message.id, 'right'));
 
@@ -276,7 +293,7 @@ function renderDetourLane(container, originMessage, direction) {
 
   const origin = document.createElement('div');
   origin.className = 'detour-origin';
-  origin.textContent = `From: ${originMessage.content.slice(0, 86)}`;
+  origin.textContent = `From: ${originMessage.content.slice(0, 90)}`;
 
   header.append(back, title, origin);
   container.appendChild(header);
@@ -306,7 +323,7 @@ function renderAssistantBranchRow(message) {
   const rowFrag = branchRowTemplate.content.cloneNode(true);
   const row = rowFrag.querySelector('.branch-row');
   row.dataset.originId = message.id;
-  row.dataset.active = activeOriginMessageId === message.id ? activeDirection : 'main';
+  row.dataset.active = state.activeOriginMessageId === message.id ? state.activeDirection : 'main';
 
   renderDetourLane(row.querySelector('.left-lane'), message, 'left');
   renderMainAssistantLane(row.querySelector('.main-lane'), message);
@@ -316,19 +333,25 @@ function renderAssistantBranchRow(message) {
 }
 
 function renderMainThread() {
-  messageList.innerHTML = '';
   const mainLane = laneById(MAIN_LANE_ID);
-
   mainLane.messageIds
     .map(msgById)
     .filter(Boolean)
     .forEach((message) => {
+      if (renderedMainMessageIds.has(message.id)) return;
       if (message.role === 'assistant') {
-        messageList.appendChild(renderAssistantBranchRow(message));
+        const row = renderAssistantBranchRow(message);
+        const rowEl = row.querySelector('.branch-row');
+        branchRowByOriginId.set(message.id, rowEl);
+        messageList.appendChild(row);
       } else {
         messageList.appendChild(createMessageElement(message));
       }
+      renderedMainMessageIds.add(message.id);
     });
+  branchRowByOriginId.forEach((row, originId) => {
+    row.dataset.active = state.activeOriginMessageId === originId ? state.activeDirection : 'main';
+  });
 }
 
 function render() {
@@ -339,7 +362,7 @@ function render() {
 
 function scrollToConversationEnd() {
   requestAnimationFrame(() => {
-    if (activeLaneId === MAIN_LANE_ID) {
+    if (state.activeLaneId === MAIN_LANE_ID) {
       chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
       return;
     }
@@ -349,7 +372,12 @@ function scrollToConversationEnd() {
   });
 }
 
-function handleSend() {
+function autoResizePrompt() {
+  promptEl.style.height = 'auto';
+  promptEl.style.height = `${Math.min(promptEl.scrollHeight, 180)}px`;
+}
+
+async function handleSend() {
   const text = promptEl.value.trim();
   if (!text) return;
 
@@ -357,23 +385,38 @@ function handleSend() {
   const previousId = lane.messageIds.at(-1) || lane.originMessageId || null;
 
   const user = makeMessage({ role: 'user', content: text, laneId: lane.id, parentId: previousId });
-  messages.push(user);
+  addMessage(user);
   lane.messageIds.push(user.id);
 
-  const assistant = makeMessage({
+  const pendingAssistant = makeMessage({
     role: 'assistant',
-    content: makeFakeAssistantReply(text, lane),
+    content: '…',
     laneId: lane.id,
     parentId: user.id,
   });
-  messages.push(assistant);
-  lane.messageIds.push(assistant.id);
+  pendingAssistant.pending = true;
+  addMessage(pendingAssistant);
+  lane.messageIds.push(pendingAssistant.id);
+
+  promptEl.value = '';
+  autoResizePrompt();
+  showStatus('Assistant is thinking…');
+  render();
+  scrollToConversationEnd();
+
+  await new Promise((resolve) => setTimeout(resolve, 320));
+  const assistant = makeMessage({
+    role: 'assistant', content: makeFakeAssistantReply(text, lane), laneId: lane.id, parentId: user.id,
+  });
+  assistant.id = pendingAssistant.id;
+  messagesById.set(pendingAssistant.id, assistant);
+  const index = messages.findIndex((msg) => msg.id === pendingAssistant.id);
+  messages[index] = assistant;
 
   if (lane.id !== MAIN_LANE_ID && lane.messageIds.length === 2) {
     lane.title = summarizeDetourTitle(text);
   }
 
-  promptEl.value = '';
   showStatus('');
   render();
   scrollToConversationEnd();
@@ -395,7 +438,8 @@ function seedConversation() {
     parentId: user.id,
   });
 
-  messages.push(user, assistant);
+  addMessage(user);
+  addMessage(assistant);
   main.messageIds.push(user.id, assistant.id);
 }
 
@@ -410,6 +454,8 @@ promptEl.addEventListener('keydown', (event) => {
     handleSend();
   }
 });
+promptEl.addEventListener('input', autoResizePrompt);
 
 seedConversation();
 render();
+autoResizePrompt();
