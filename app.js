@@ -1,123 +1,415 @@
-const el=(id)=>document.getElementById(id);
-const messageList=el('messageList');
-const assistantTemplate=el('assistantTemplate');
-const branchRowTemplate=document.getElementById('branchRowTemplate');
-const promptEl=el('prompt');
+const el = (id) => document.getElementById(id);
 
-const messages=[];
-const lanes=new Map();
-const session={id:crypto.randomUUID(),title:'New session',mainLaneId:'main'};
-lanes.set('main',{id:'main',originMessageId:null,direction:'main',title:'Main thread',messageIds:[],parentLaneId:null,collapsed:false});
+const chatWindow = el('chatWindow');
+const messageList = el('messageList');
+const assistantTemplate = el('assistantTemplate');
+const branchRowTemplate = el('branchRowTemplate');
+const promptEl = el('prompt');
+const sendBtn = el('sendBtn');
+const branchHint = el('branchHint');
+const statusMsg = el('statusMsg');
+const backToMainBtn = el('backToMainBtn');
 
-let activeLaneId='main';
-let activeOriginMessageId=null;
-let activeDirection='main';
+const MAIN_LANE_ID = 'main';
+const messages = [];
+const lanes = new Map();
 
-const uid=()=>crypto.randomUUID();
-const msgById=(id)=>messages.find(m=>m.id===id);
-const summarizeDetourTitle=(text)=>{const c=text.replace(/[?.!]/g,'').replace(/^(can you|please|explain|tell me|what about)\s+/i,'').trim();return c.split(/\s+/).slice(0,3).join(' ')||'Detour';};
-const findDetour=(originId,dir)=>[...lanes.values()].find(l=>l.originMessageId===originId&&l.direction===dir) || null;
+const session = {
+  id: crypto.randomUUID(),
+  title: 'New session',
+  mainLaneId: MAIN_LANE_ID,
+};
 
-function buildContext(){
-  const lane=lanes.get(activeLaneId);
-  if(!lane||lane.id==='main') return lanes.get('main').messageIds.map(msgById).filter(Boolean);
-  const origin=msgById(lane.originMessageId);
-  const laneMsgs=lane.messageIds.map(msgById).filter(Boolean);
-  return [origin,...laneMsgs].filter(Boolean);
+lanes.set(MAIN_LANE_ID, {
+  id: MAIN_LANE_ID,
+  originMessageId: null,
+  direction: 'main',
+  title: 'Main thread',
+  messageIds: [],
+  parentLaneId: null,
+  collapsed: false,
+});
+
+let activeLaneId = MAIN_LANE_ID;
+let activeOriginMessageId = null;
+let activeDirection = 'main';
+
+const uid = () => crypto.randomUUID();
+const msgById = (id) => messages.find((message) => message.id === id) || null;
+const laneById = (id) => lanes.get(id) || null;
+
+function directionLabel(direction) {
+  if (direction === 'left') return 'Alternative';
+  if (direction === 'right') return 'Expansion';
+  return 'Main thread';
 }
 
-function updateContextPreview(){
-  const ctx=buildContext();
-  el('contextPreview').textContent=`Context rule: ${activeLaneId==='main'?'main thread history':'origin + detour lane history'}\n\n${ctx.map((m,i)=>`${i+1}. ${m.role}: ${m.content}`).join('\n')}`;
+function summarizeDetourTitle(text) {
+  const cleaned = text
+    .replace(/[?.!]/g, '')
+    .replace(/^(can you|please|explain|tell me|what about|show me|give me)\s+/i, '')
+    .trim();
+
+  return cleaned.split(/\s+/).slice(0, 4).join(' ') || 'Detour';
 }
 
-function updateBranchHint(){
-  const lane=lanes.get(activeLaneId);
-  el('branchHint').textContent=activeLaneId==='main'?'Main thread':`${lane.direction==='left'?'Alternative':'Expansion'} detour`;
+function findDetour(originMessageId, direction) {
+  return [...lanes.values()].find(
+    (lane) => lane.originMessageId === originMessageId && lane.direction === direction,
+  ) || null;
 }
 
-function openDetour(originMessageId,direction){
-  const existing=findDetour(originMessageId,direction);
-  if(existing){activeLaneId=existing.id; existing.collapsed=false;} else {
-    const laneId=uid();
-    const lane={id:laneId,originMessageId,direction,title:direction==='left'?'Alternative':'Expansion',messageIds:[],parentLaneId:'main',collapsed:false};
-    lanes.set(laneId,lane);activeLaneId=laneId;
+function getOriginRow(originMessageId) {
+  return messageList.querySelector(`[data-origin-id="${originMessageId}"]`);
+}
+
+function activeLane() {
+  return laneById(activeLaneId) || laneById(MAIN_LANE_ID);
+}
+
+function buildContextMessages() {
+  const lane = activeLane();
+
+  if (!lane || lane.id === MAIN_LANE_ID) {
+    return laneById(MAIN_LANE_ID).messageIds.map(msgById).filter(Boolean);
   }
-  activeOriginMessageId=originMessageId; activeDirection=direction;
-  updateBranchHint(); render(); promptEl.focus();
+
+  const origin = msgById(lane.originMessageId);
+  const laneMessages = lane.messageIds.map(msgById).filter(Boolean);
+  return [origin, ...laneMessages].filter(Boolean);
 }
 
-function openLane(laneId){const lane=lanes.get(laneId); if(!lane)return; activeLaneId=lane.id; activeOriginMessageId=lane.originMessageId; activeDirection=lane.direction; lane.collapsed=false; updateBranchHint(); render();}
-function returnToMain(){const lane=lanes.get(activeLaneId); if(lane&&lane.id!=='main') lane.collapsed=true; activeLaneId='main'; activeOriginMessageId=null; activeDirection='main'; updateBranchHint(); render();}
+function updateContextPreview() {
+  const ctx = buildContextMessages();
+  const rule = activeLaneId === MAIN_LANE_ID
+    ? 'main thread history'
+    : 'origin assistant answer + active detour history';
 
-function renderMessageBubble(msg){
-  if(msg.role==='assistant') return `<article class="message assistant"><div class="message-card">${msg.content}</div></article>`;
-  return `<article class="message user"><div class="message-card">${msg.content}</div></article>`;
-}
-function renderLaneMessages(laneId){const lane=lanes.get(laneId); if(!lane) return ''; return lane.messageIds.map(id=>msgById(id)).filter(Boolean).map(renderMessageBubble).join('');}
-
-function renderDetourChips(message){
-  const related=[...lanes.values()].filter(l=>l.originMessageId===message.id&&l.messageIds.length>0);
-  if(!related.length) return '';
-  return `<div class="detour-tags">${related.map(l=>`<button class="detour-tag" data-lane-id="${l.id}">${l.title} · ${l.messageIds.length} messages</button>`).join('')}</div>`;
+  el('contextPreview').textContent = [
+    `Context rule: ${rule}`,
+    '',
+    ...ctx.map((message, index) => `${index + 1}. ${message.role}: ${message.content}`),
+  ].join('\n');
 }
 
-function renderAssistantWithBranches(message){
-  const leftLane=findDetour(message.id,'left');
-  const rightLane=findDetour(message.id,'right');
-  const activeForThisRow=activeOriginMessageId===message.id?activeDirection:'main';
+function updateBranchHint() {
+  const lane = activeLane();
 
-  const rowFrag=branchRowTemplate.content.cloneNode(true);
-  const row=rowFrag.querySelector('.branch-row');
-  row.dataset.originId=message.id;
-  row.dataset.active=activeForThisRow;
+  if (!lane || lane.id === MAIN_LANE_ID) {
+    branchHint.textContent = 'Main thread';
+    backToMainBtn.classList.add('hidden');
+    promptEl.placeholder = 'Ask, refine, compare...';
+    return;
+  }
 
-  const left=row.querySelector('.left-lane');
-  left.innerHTML=`<div class="detour-head"><button class="back-main">← Back to main</button><span>Alternative detour</span></div>${leftLane?renderLaneMessages(leftLane.id):'<div class="detour-empty">Alternative from this answer</div>'}`;
-  const main=row.querySelector('.main-lane');
+  const origin = msgById(lane.originMessageId);
+  const originSnippet = origin?.content?.slice(0, 56) || 'selected answer';
+  branchHint.textContent = `${directionLabel(lane.direction)} detour from: ${originSnippet}`;
+  backToMainBtn.classList.remove('hidden');
+  promptEl.placeholder = lane.direction === 'left'
+    ? 'Ask an alternative angle...'
+    : 'Expand this answer...';
+}
 
-  const assistantFrag=assistantTemplate.content.cloneNode(true);
-  const article=assistantFrag.querySelector('.message');
-  article.querySelector('.message-content').textContent=message.content;
-  article.querySelector('.side-branch.left').onclick=()=>openDetour(message.id,'left');
-  article.querySelector('.side-branch.right').onclick=()=>openDetour(message.id,'right');
-  main.appendChild(assistantFrag);
-  const chipsWrap=document.createElement('div'); chipsWrap.innerHTML=renderDetourChips(message); main.appendChild(chipsWrap);
+function showStatus(text) {
+  statusMsg.textContent = text || '';
+}
 
-  const right=row.querySelector('.right-lane');
-  right.innerHTML=`<div class="detour-head"><button class="back-main">← Back to main</button><span>Expansion detour</span></div>${rightLane?renderLaneMessages(rightLane.id):'<div class="detour-empty">Expansion from this answer</div>'}`;
+function makeMessage({ role, content, laneId, parentId = null }) {
+  return {
+    id: uid(),
+    role,
+    content,
+    laneId,
+    parentId,
+    createdAt: Date.now(),
+  };
+}
 
-  row.querySelectorAll('.back-main').forEach(b=>b.onclick=()=>returnToMain());
-  row.querySelectorAll('.detour-tag').forEach(btn=>btn.onclick=()=>openLane(btn.dataset.laneId));
+function makeFakeAssistantReply(text, lane) {
+  if (lane.id === MAIN_LANE_ID) return `Answer: ${text.slice(0, 120)}`;
+  return `${directionLabel(lane.direction)} detour: ${text.slice(0, 120)}`;
+}
+
+function createOrOpenDetour(originMessageId, direction) {
+  const origin = msgById(originMessageId);
+  if (!origin || origin.role !== 'assistant') {
+    showStatus('You can only branch from an assistant answer.');
+    return;
+  }
+
+  let lane = findDetour(originMessageId, direction);
+
+  if (!lane) {
+    lane = {
+      id: uid(),
+      originMessageId,
+      direction,
+      title: directionLabel(direction),
+      messageIds: [],
+      parentLaneId: MAIN_LANE_ID,
+      collapsed: false,
+    };
+    lanes.set(lane.id, lane);
+  }
+
+  activeLaneId = lane.id;
+  activeOriginMessageId = originMessageId;
+  activeDirection = direction;
+  lane.collapsed = false;
+
+  showStatus('');
+  render();
+  updateBranchHint();
+
+  requestAnimationFrame(() => {
+    getOriginRow(originMessageId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    promptEl.focus();
+  });
+}
+
+function openLane(laneId) {
+  const lane = laneById(laneId);
+  if (!lane || lane.id === MAIN_LANE_ID) return;
+
+  activeLaneId = lane.id;
+  activeOriginMessageId = lane.originMessageId;
+  activeDirection = lane.direction;
+  lane.collapsed = false;
+
+  showStatus('');
+  render();
+  updateBranchHint();
+
+  requestAnimationFrame(() => {
+    getOriginRow(lane.originMessageId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    promptEl.focus();
+  });
+}
+
+function returnToMain() {
+  const lane = activeLane();
+  if (lane && lane.id !== MAIN_LANE_ID) lane.collapsed = true;
+
+  activeLaneId = MAIN_LANE_ID;
+  activeOriginMessageId = null;
+  activeDirection = 'main';
+
+  showStatus('');
+  render();
+  updateBranchHint();
+}
+
+function createMessageElement(message, options = {}) {
+  const article = document.createElement('article');
+  article.className = `message ${message.role}`;
+  if (options.compact) article.classList.add('compact');
+
+  const card = document.createElement('div');
+  card.className = 'message-card';
+  card.textContent = message.content;
+  article.appendChild(card);
+  return article;
+}
+
+function createDetourTag(lane) {
+  const tag = document.createElement('button');
+  tag.className = 'detour-tag';
+  tag.type = 'button';
+  tag.dataset.laneId = lane.id;
+
+  const messageCount = lane.messageIds.length;
+  const turns = Math.max(1, Math.ceil(messageCount / 2));
+  tag.textContent = `${directionLabel(lane.direction)}: ${lane.title} · ${turns}`;
+  tag.title = `Open ${directionLabel(lane.direction).toLowerCase()} detour`;
+  tag.addEventListener('click', () => openLane(lane.id));
+  return tag;
+}
+
+function renderDetourTags(container, originMessage) {
+  const related = [...lanes.values()].filter(
+    (lane) => lane.originMessageId === originMessage.id && lane.messageIds.length > 0,
+  );
+
+  if (!related.length) return;
+
+  const label = document.createElement('span');
+  label.className = 'detour-label';
+  label.textContent = 'Detours';
+  container.appendChild(label);
+
+  related.forEach((lane) => container.appendChild(createDetourTag(lane)));
+}
+
+function renderMainAssistantLane(container, message) {
+  const assistantFrag = assistantTemplate.content.cloneNode(true);
+  const article = assistantFrag.querySelector('.message');
+  article.dataset.id = message.id;
+  article.querySelector('.message-content').textContent = message.content;
+
+  const leftButton = article.querySelector('.side-branch.left');
+  const rightButton = article.querySelector('.side-branch.right');
+  leftButton.addEventListener('click', () => createOrOpenDetour(message.id, 'left'));
+  rightButton.addEventListener('click', () => createOrOpenDetour(message.id, 'right'));
+
+  const tags = article.querySelector('.detour-tags');
+  renderDetourTags(tags, message);
+
+  container.appendChild(assistantFrag);
+}
+
+function renderDetourLane(container, originMessage, direction) {
+  const lane = findDetour(originMessage.id, direction);
+
+  const header = document.createElement('div');
+  header.className = 'detour-head';
+
+  const back = document.createElement('button');
+  back.className = 'back-main';
+  back.type = 'button';
+  back.textContent = '← Back to main';
+  back.addEventListener('click', returnToMain);
+
+  const title = document.createElement('div');
+  title.className = 'detour-title';
+  title.textContent = `${directionLabel(direction)} detour`;
+
+  const origin = document.createElement('div');
+  origin.className = 'detour-origin';
+  origin.textContent = `From: ${originMessage.content.slice(0, 86)}`;
+
+  header.append(back, title, origin);
+  container.appendChild(header);
+
+  if (!lane || lane.messageIds.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'detour-empty';
+    empty.textContent = direction === 'left'
+      ? 'Ask for an alternative interpretation, critique, or competing option.'
+      : 'Ask to expand, deepen, or explore a related angle.';
+    container.appendChild(empty);
+    return;
+  }
+
+  const thread = document.createElement('div');
+  thread.className = 'detour-thread';
+
+  lane.messageIds
+    .map(msgById)
+    .filter(Boolean)
+    .forEach((message) => thread.appendChild(createMessageElement(message, { compact: true })));
+
+  container.appendChild(thread);
+}
+
+function renderAssistantBranchRow(message) {
+  const rowFrag = branchRowTemplate.content.cloneNode(true);
+  const row = rowFrag.querySelector('.branch-row');
+  row.dataset.originId = message.id;
+  row.dataset.active = activeOriginMessageId === message.id ? activeDirection : 'main';
+
+  renderDetourLane(row.querySelector('.left-lane'), message, 'left');
+  renderMainAssistantLane(row.querySelector('.main-lane'), message);
+  renderDetourLane(row.querySelector('.right-lane'), message, 'right');
+
   return rowFrag;
 }
 
-function render(){
-  messageList.innerHTML='';
-  const mainLane=lanes.get('main');
-  for(const id of mainLane.messageIds){
-    const m=msgById(id); if(!m) continue;
-    if(m.role==='assistant') messageList.appendChild(renderAssistantWithBranches(m));
-    else {const wrap=document.createElement('div'); wrap.innerHTML=renderMessageBubble(m); messageList.appendChild(wrap.firstChild);} 
-  }
+function renderMainThread() {
+  messageList.innerHTML = '';
+  const mainLane = laneById(MAIN_LANE_ID);
+
+  mainLane.messageIds
+    .map(msgById)
+    .filter(Boolean)
+    .forEach((message) => {
+      if (message.role === 'assistant') {
+        messageList.appendChild(renderAssistantBranchRow(message));
+      } else {
+        messageList.appendChild(createMessageElement(message));
+      }
+    });
+}
+
+function render() {
+  renderMainThread();
+  updateBranchHint();
   updateContextPreview();
 }
 
-function makeFakeAssistantReply(text,lane){return `${lane.direction==='main'?'Answer':'Detour'}: ${text.slice(0,80)}`;}
-function handleSend(){
-  const text=promptEl.value.trim(); if(!text) return;
-  const lane=lanes.get(activeLaneId);
-  const previousId=lane.messageIds.at(-1)||lane.originMessageId||null;
-  const user={id:uid(),role:'user',content:text,laneId:activeLaneId,parentId:previousId,createdAt:Date.now()}; messages.push(user); lane.messageIds.push(user.id);
-  const assistant={id:uid(),role:'assistant',content:makeFakeAssistantReply(text,lane),laneId:activeLaneId,parentId:user.id,createdAt:Date.now()}; messages.push(assistant); lane.messageIds.push(assistant.id);
-  if(lane.id!=='main'&&lane.messageIds.length===2) lane.title=summarizeDetourTitle(text);
-  promptEl.value=''; render();
+function scrollToConversationEnd() {
+  requestAnimationFrame(() => {
+    if (activeLaneId === MAIN_LANE_ID) {
+      chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
+      return;
+    }
+
+    const lane = activeLane();
+    getOriginRow(lane.originMessageId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 }
 
-el('sendBtn').onclick=handleSend;
-el('toggleMetaBtn').onclick=()=>el('metaPanel').classList.toggle('hidden');
+function handleSend() {
+  const text = promptEl.value.trim();
+  if (!text) return;
 
-const u={id:uid(),role:'user',content:'Analyze this project carefully.',laneId:'main',parentId:null,createdAt:Date.now()};
-const a={id:uid(),role:'assistant',content:'Here is a detailed UI review with a cleaner interaction model.',laneId:'main',parentId:u.id,createdAt:Date.now()};
-messages.push(u,a); lanes.get('main').messageIds.push(u.id,a.id);
-updateBranchHint(); render();
+  const lane = activeLane();
+  const previousId = lane.messageIds.at(-1) || lane.originMessageId || null;
+
+  const user = makeMessage({ role: 'user', content: text, laneId: lane.id, parentId: previousId });
+  messages.push(user);
+  lane.messageIds.push(user.id);
+
+  const assistant = makeMessage({
+    role: 'assistant',
+    content: makeFakeAssistantReply(text, lane),
+    laneId: lane.id,
+    parentId: user.id,
+  });
+  messages.push(assistant);
+  lane.messageIds.push(assistant.id);
+
+  if (lane.id !== MAIN_LANE_ID && lane.messageIds.length === 2) {
+    lane.title = summarizeDetourTitle(text);
+  }
+
+  promptEl.value = '';
+  showStatus('');
+  render();
+  scrollToConversationEnd();
+}
+
+function seedConversation() {
+  const main = laneById(MAIN_LANE_ID);
+
+  const user = makeMessage({
+    role: 'user',
+    content: 'Analyze this project carefully.',
+    laneId: MAIN_LANE_ID,
+  });
+
+  const assistant = makeMessage({
+    role: 'assistant',
+    content: 'Here is a detailed UI review with a cleaner interaction model. Use the arrows on the left and right of this answer to create persistent horizontal detours.',
+    laneId: MAIN_LANE_ID,
+    parentId: user.id,
+  });
+
+  messages.push(user, assistant);
+  main.messageIds.push(user.id, assistant.id);
+}
+
+sendBtn.addEventListener('click', handleSend);
+backToMainBtn.addEventListener('click', returnToMain);
+el('toggleMetaBtn').addEventListener('click', () => el('metaPanel').classList.toggle('hidden'));
+el('closeMetaBtn').addEventListener('click', () => el('metaPanel').classList.add('hidden'));
+
+promptEl.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    handleSend();
+  }
+});
+
+seedConversation();
+render();

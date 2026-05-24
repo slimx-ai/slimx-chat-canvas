@@ -1,8 +1,70 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>SlimX Canvas</title><link rel="stylesheet" href="styles.css" /></head><body>
-<main class="app"><header class="topbar"><h1>SlimX Canvas</h1><button id="toggleMetaBtn">Context</button></header>
-<section id="chatWindow" class="chat-window"><div id="messageList" class="message-list"></div></section>
-<aside id="metaPanel" class="meta-panel hidden"><h2>Context used by AI</h2><pre id="contextPreview"></pre></aside>
-<footer class="composer"><div id="branchHint" class="branch-hint">Main thread</div><div class="compose-row"><textarea id="prompt" rows="2" placeholder="Ask, refine, compare..."></textarea><button id="sendBtn">Send</button></div><div id="statusMsg" class="status"></div></footer></main>
-<template id="assistantTemplate"><article class="message assistant"><button class="side-branch left" data-dir="left" title="Alternative detour">←</button><div class="message-card"><div class="message-content"></div><div class="detour-tags"></div></div><button class="side-branch right" data-dir="right" title="Expand detour">→</button></article></template>
-<template id="branchRowTemplate"><section class="branch-row"><div class="branch-lanes"><div class="branch-lane left-lane"></div><div class="branch-lane main-lane"></div><div class="branch-lane right-lane"></div></div></section></template>
-<script type="module" src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SlimX Canvas</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <h1>SlimX Canvas</h1>
+          <p>Vertical chat with horizontal detours from any assistant answer.</p>
+        </div>
+        <button id="toggleMetaBtn" class="ghost-btn" type="button">Context</button>
+      </header>
+
+      <section id="chatWindow" class="chat-window" aria-label="Chat conversation">
+        <div id="messageList" class="message-list"></div>
+      </section>
+
+      <aside id="metaPanel" class="meta-panel hidden" aria-label="Context used by AI">
+        <div class="meta-head">
+          <h2>Context used by AI</h2>
+          <button id="closeMetaBtn" class="ghost-btn small" type="button">Close</button>
+        </div>
+        <pre id="contextPreview"></pre>
+      </aside>
+
+      <footer class="composer">
+        <div class="composer-inner">
+          <div class="composer-meta">
+            <span id="branchHint" class="branch-hint">Main thread</span>
+            <button id="backToMainBtn" class="back-main composer-back hidden" type="button">← Back to main</button>
+          </div>
+          <div class="compose-row">
+            <label class="sr-only" for="prompt">Message</label>
+            <textarea id="prompt" rows="1" placeholder="Ask, refine, compare..."></textarea>
+            <button id="sendBtn" type="button">Send</button>
+          </div>
+          <div id="statusMsg" class="status" role="status" aria-live="polite"></div>
+        </div>
+      </footer>
+    </main>
+
+    <template id="assistantTemplate">
+      <article class="message assistant branchable">
+        <button class="side-branch left" data-dir="left" type="button" title="Open alternative detour" aria-label="Open alternative detour">←</button>
+        <div class="message-card">
+          <div class="message-content"></div>
+          <div class="detour-tags" aria-label="Collapsed detours"></div>
+        </div>
+        <button class="side-branch right" data-dir="right" type="button" title="Open expansion detour" aria-label="Open expansion detour">→</button>
+      </article>
+    </template>
+
+    <template id="branchRowTemplate">
+      <section class="branch-row" data-active="main">
+        <div class="branch-lanes">
+          <section class="branch-lane left-lane" aria-label="Alternative detour"></section>
+          <section class="branch-lane main-lane" aria-label="Main message"></section>
+          <section class="branch-lane right-lane" aria-label="Expansion detour"></section>
+        </div>
+      </section>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
