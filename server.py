@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
 GRADIO_URL = "https://gpt.baby-gpt.com"
 
 print("Initializing Gradio Client connection...", flush=True)
+gradio_client = None
 try:
     gradio_client = Client(GRADIO_URL)
     print("Gradio Client connection established successfully.", flush=True)
@@ -24,7 +25,10 @@ def chat_endpoint(payload: ChatRequest):
     print(f"\n--- New Chat Request Received ---", flush=True)
     print(f"Payload Prompt passed to Backend:\n{payload.prompt}", flush=True)
     
-    try: 
+    if gradio_client is None:
+        raise HTTPException(status_code=503, detail="Model backend is unavailable. Please try again later.")
+
+    try:
         print("Forwarding payload to upstream Gradio model...", flush=True)
         
         # Call upstream model
