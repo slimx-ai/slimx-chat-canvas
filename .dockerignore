@@ -1,20 +1,26 @@
-.DS_Store
 __pycache__/
 *.pyc
+.DS_Store
+__MACOSX/
+.git/
+.github/
 .venv/
 .env
 
-# Model weights are large; keep them outside git or mount them at runtime.
+# Do not bake large model weights into the image.
 model/babyGPT/babyGPT_152M
+model/babyGPT/*.llm
 model/babyGPT/*.pt
 model/babyGPT/*.pth
 model/babyGPT/*.bin
 model/babyGPT/*.ckpt
 model/babyGPT/*.safetensors
-
-# LLM checkpoint files
-model/babyGPT/*.llm
 *.llm
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.safetensors
 
 # Editor swap files
 *.swp
