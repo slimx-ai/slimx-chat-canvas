@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SlimX Canvas</title>
-    <link rel="stylesheet" href="styles.css?v=20260526-branch-fix" />
+    <link rel="stylesheet" href="styles.css?v=20260528-messages-api" />
   </head>
   <body>
     <main class="app">
@@ -35,8 +35,8 @@
             <button id="backToMainBtn" class="back-main composer-back hidden" type="button">← Back to main</button>
           </div>
           <div class="compose-row">
-            <label class="sr-only" for="prompt">Message</label>
-            <textarea id="prompt" rows="1" placeholder="Ask, refine, compare..."></textarea>
+            <label class="sr-only" for="message">Message</label>
+            <textarea id="message" rows="1" placeholder="Ask, refine, compare..."></textarea>
             <button id="sendBtn" type="button">Send</button>
           </div>
           <div id="statusMsg" class="status" role="status" aria-live="polite"></div>
@@ -54,6 +54,6 @@
       </article>
     </template>
 
-    <script type="module" src="app.js?v=20260526-branch-fix"></script>
+    <script type="module" src="app.js?v=20260528-messages-api"></script>
   </body>
 </html>

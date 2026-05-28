@@ -1,4 +1,4 @@
-const promptEl = document.getElementById('prompt');
+const messageEl = document.getElementById('message');
 const sendBtn = document.getElementById('sendBtn');
 const statusMsg = document.getElementById('statusMsg');
 const messageList = document.getElementById('messageList');
@@ -13,9 +13,12 @@ const assistantTemplate = document.getElementById('assistantTemplate');
 let idCounter = 0;
 
 const MAIN_LANE_ID = 'main';
+const SESSION_ID = crypto.randomUUID ? crypto.randomUUID() : `session_${Date.now()}`;
+
 const lanes = new Map([
   [MAIN_LANE_ID, { id: MAIN_LANE_ID, title: 'Main thread', messageIds: [], originMessageId: null, parentLaneId: null }],
 ]);
+
 const detoursByOriginId = new Map();
 let activeLaneId = MAIN_LANE_ID;
 
@@ -44,9 +47,9 @@ function addMessage(message) {
   messages.push(message);
 }
 
-function autoResizePrompt() {
-  promptEl.style.height = 'auto';
-  promptEl.style.height = `${Math.min(promptEl.scrollHeight, 240)}px`;
+function autoResizeMessageInput() {
+  messageEl.style.height = 'auto';
+  messageEl.style.height = `${Math.min(messageEl.scrollHeight, 240)}px`;
 }
 
 function showStatus(text) {
@@ -71,11 +74,18 @@ function messageIdsForLane(lane) {
     .filter(Boolean);
 }
 
-function escapeContextContent(text) {
+function cleanMessageContent(text) {
   return String(text || '').replace(/\s+/g, ' ').trim();
 }
 
-function buildPromptForBackend() {
+function toApiMessage(message) {
+  return {
+    role: message.role,
+    content: cleanMessageContent(message.content),
+  };
+}
+
+function buildMessagesForBackend() {
   const lane = activeLane();
   const currentMessages = messageIdsForLane(lane).filter(message => !message.pending);
 
@@ -86,40 +96,34 @@ function buildPromptForBackend() {
     const parentLane = originMessage ? lanes.get(originMessage.laneId) : lanes.get(MAIN_LANE_ID);
 
     if (parentLane && originMessage) {
-      const parentMessages = messageIdsForLane(parentLane);
+      const parentMessages = messageIdsForLane(parentLane).filter(message => !message.pending);
       const originIndex = parentMessages.findIndex(message => message.id === originMessage.id);
       const historyUntilOrigin = originIndex >= 0 ? parentMessages.slice(0, originIndex + 1) : [originMessage];
-      contextMessages = contextMessages.concat(historyUntilOrigin.filter(message => !message.pending));
+      contextMessages = contextMessages.concat(historyUntilOrigin);
     }
 
     contextMessages.push({
-      role: 'user',
-      content: 'Continue as a focused deep dive from the previous assistant answer. Answer only the new question.',
+      role: 'system',
+      content: 'Continue as a focused deep dive from the previous assistant answer. Answer only the new question in this deep-dive lane.',
     });
   }
 
   contextMessages = contextMessages.concat(currentMessages);
 
-  return `${contextMessages
-    .map(message => `${message.role === 'user' ? 'User' : 'Assistant'}: ${escapeContextContent(message.content)}`)
-    .join('\n')}\nAssistant:`;
+  return contextMessages
+    .filter(message => message.role === 'system' || message.role === 'user' || message.role === 'assistant')
+    .map(toApiMessage)
+    .filter(message => message.content.length > 0);
 }
 
-function cleanModelReply(rawReply, sentPrompt) {
+function formatMessagesForPreview(apiMessages) {
+  return apiMessages
+    .map(message => `${message.role.toUpperCase()}: ${message.content}`)
+    .join('\n\n');
+}
+
+function cleanModelReply(rawReply) {
   let text = String(rawReply ?? '').trim();
-
-  if (sentPrompt && text.startsWith(sentPrompt)) {
-    text = text.slice(sentPrompt.length).trim();
-  }
-
-  const assistantMarkers = ['\nAssistant:', 'Assistant:'];
-  for (const marker of assistantMarkers) {
-    const index = text.lastIndexOf(marker);
-    if (index > -1) {
-      text = text.slice(index + marker.length).trim();
-      break;
-    }
-  }
 
   text = text
     .replace(/^Assistant:\s*/i, '')
@@ -288,7 +292,7 @@ function openDetour(originMessageId) {
   activeLaneId = laneId;
   render();
   scrollToConversationEnd();
-  promptEl.focus();
+  messageEl.focus();
 }
 
 function backToMain() {
@@ -297,8 +301,36 @@ function backToMain() {
   scrollToConversationEnd();
 }
 
+async function callChatBackend(apiMessages, lane, userMessage) {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: apiMessages,
+      conversation_id: SESSION_ID,
+      lane_id: lane.id,
+      parent_message_id: userMessage.parentId,
+      mode: lane.id === MAIN_LANE_ID ? 'main' : 'deep',
+    }),
+  });
+
+  if (!response.ok) {
+    let details = '';
+    try {
+      const data = await response.json();
+      details = data.detail ? `: ${data.detail}` : '';
+    } catch {
+      details = `: ${await response.text()}`;
+    }
+    throw new Error(`Network response failure ${response.status}${details}`);
+  }
+
+  const data = await response.json();
+  return data.reply ?? data.text ?? data.message ?? '';
+}
+
 async function handleSend() {
-  const text = promptEl.value.trim();
+  const text = messageEl.value.trim();
   if (!text) return;
 
   const lane = activeLane();
@@ -312,7 +344,7 @@ async function handleSend() {
     lane.title = summarizeDetourTitle(text);
   }
 
-  const formattedPrompt = buildPromptForBackend();
+  const apiMessages = buildMessagesForBackend();
 
   const pendingAssistant = makeMessage({
     role: 'assistant',
@@ -320,33 +352,24 @@ async function handleSend() {
     laneId: lane.id,
     parentId: user.id,
   });
+
   pendingAssistant.pending = true;
   addMessage(pendingAssistant);
   lane.messageIds.push(pendingAssistant.id);
 
-  promptEl.value = '';
-  autoResizePrompt();
+  messageEl.value = '';
+  autoResizeMessageInput();
   showStatus('Assistant is thinking…');
   render();
   scrollToConversationEnd();
 
   let replyText = '';
   try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: formattedPrompt }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Network response failure: ${response.status}`);
-    }
-
-    const data = await response.json();
-    replyText = cleanModelReply(data.reply, formattedPrompt);
+    const rawReply = await callChatBackend(apiMessages, lane, user);
+    replyText = cleanModelReply(rawReply);
   } catch (err) {
     console.error(err);
-    replyText = 'Error: Failed to fetch response from the model backend.';
+    replyText = `Error: ${err.message}`;
   }
 
   pendingAssistant.content = replyText;
@@ -358,7 +381,7 @@ async function handleSend() {
 }
 
 function updateContextPreview() {
-  contextPreview.textContent = buildPromptForBackend();
+  contextPreview.textContent = formatMessagesForPreview(buildMessagesForBackend());
 }
 
 function toggleMetaPanel() {
@@ -371,8 +394,8 @@ backToMainBtn.addEventListener('click', backToMain);
 toggleMetaBtn.addEventListener('click', toggleMetaPanel);
 closeMetaBtn.addEventListener('click', () => metaPanel.classList.add('hidden'));
 
-promptEl.addEventListener('input', autoResizePrompt);
-promptEl.addEventListener('keydown', (event) => {
+messageEl.addEventListener('input', autoResizeMessageInput);
+messageEl.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     handleSend();
@@ -380,4 +403,4 @@ promptEl.addEventListener('keydown', (event) => {
 });
 
 render();
-autoResizePrompt();
+autoResizeMessageInput();

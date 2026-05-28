@@ -3,7 +3,32 @@ services:
     image: ghcr.io/${GHCR_OWNER}/slimx-chat-canvas:${IMAGE_TAG:-latest}
     container_name: slimx-chat-canvas
     restart: unless-stopped
+
     ports:
       - "8080:8080"
+
     environment:
-      - PYTHONUNBUFFERED=1
+      PYTHONUNBUFFERED: "1"
+
+      MODEL_BACKEND: slimx
+      LLM_PROVIDER: toaster
+      LLM_MODEL: babygpt-152m
+
+      TOASTER_CONFIG_PATH: /models/babyGPT_152M_config
+      TOASTER_CHECKPOINT_PATH: /models/babyGPT_152M_125h.llm
+      TOASTER_PROMPT_MODE: completion
+
+      LLM_MAX_TOKENS: "50"
+      TOASTER_TOP_K: "35"
+      TOASTER_TEMPERATURE: "0.9"
+      TOASTER_RETURN_FULL_TEXT: "0"
+      TOASTER_STOP_ON_EOT: "1"
+      TOASTER_STRICT_LOAD: "1"
+      TOASTER_DO_SAMPLE: "1"
+
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      TORCH_NUM_THREADS: "2"
+
+    volumes:
+      - /root/llm-toster-model:/models:ro

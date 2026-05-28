@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pydantic
+httpx
+numpy
+tiktoken
+pyyaml
+slimx @ git+https://github.com/slimx-ai/slimx.git
