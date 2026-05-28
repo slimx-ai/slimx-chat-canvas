@@ -80,14 +80,18 @@ def call_slimx_backend(payload: ChatRequest, messages: list[dict]) -> str:
 
 
 def call_direct_toaster_backend(payload: ChatRequest, messages: list[dict]) -> str:
-    from app.providers.toaster_provider import messages_to_prompt
     from app.runtime.toaster_runtime import ToasterRuntime
 
-    # Singleton through function attribute keeps direct mode simple without involving SlimX.
     if not hasattr(call_direct_toaster_backend, "runtime"):
         call_direct_toaster_backend.runtime = ToasterRuntime()  # type: ignore[attr-defined]
+
     runtime: ToasterRuntime = call_direct_toaster_backend.runtime  # type: ignore[attr-defined]
-    prompt = messages_to_prompt(messages, int(os.getenv("MAX_HISTORY_MESSAGES", "8")))
+
+    prompt = next(
+        (m.get("content", "").strip() for m in reversed(messages) if m.get("role") == "user"),
+        "",
+    )
+
     return runtime.generate(
         prompt,
         max_new_tokens=payload.max_new_tokens or payload.max_tokens,
