@@ -115,8 +115,19 @@ def call_echo_backend(messages: list[dict]) -> str:
 async def lifespan(app: FastAPI):
     backend = os.getenv("MODEL_BACKEND", "echo").lower()
     if backend in {"slimx", "toaster"}:
-        from app.slimx_gateway import get_client
+        from app.slimx_gateway import complete, get_client
         get_client()
+        # Warm up the model at startup so the FIRST real request doesn't pay
+        # cold-start latency (checkpoint load + model build) and overrun the
+        # reverse proxy's timeout (openresty default proxy_read_timeout ~60s),
+        # which surfaces to the user as "504 Gateway Time-out".
+        if os.getenv("LLM_WARMUP", "1").strip().lower() not in {"0", "false", "no", "off"}:
+            try:
+                start = time.time()
+                complete([{"role": "user", "content": "hello"}], max_tokens=1)
+                logger.info("Model warm-up complete in %d ms", int((time.time() - start) * 1000))
+            except Exception:
+                logger.exception("Model warm-up failed; first request may be slow")
     elif backend in {"direct_toaster", "direct-toaster"}:
         from app.runtime.toaster_runtime import ToasterRuntime
         runtime = ToasterRuntime()
