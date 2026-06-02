@@ -57,6 +57,9 @@ jobs:
           username: ${{ secrets.CONTABO_USER }}
           key: ${{ secrets.CONTABO_SSH_KEY }}
           script_stop: true
+          # Default command_timeout is 10m; image pull + extract on Contabo's
+          # slow disk can exceed that. Give it generous headroom.
+          command_timeout: 30m
           script: |
             export GHCR_OWNER=${{ github.repository_owner }}
             export IMAGE_TAG=latest

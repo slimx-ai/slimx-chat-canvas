@@ -13,7 +13,11 @@ RUN apt-get update \
 COPY requirements.txt /app/requirements.txt
 COPY requirements-toaster-cpu.txt /app/requirements-toaster-cpu.txt
 
+# Install the CPU-only PyTorch wheel first. Plain `pip install torch` pulls the
+# CUDA build (~2.5GB of unused NVIDIA libraries); the CPU index is a fraction of
+# that. The subsequent requirements install then sees torch already satisfied.
 RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir -r /app/requirements-toaster-cpu.txt
 
 COPY app /app/app
