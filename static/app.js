@@ -339,19 +339,27 @@ async function postChat(body) {
     body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    let details = '';
-    try {
-      const data = await response.json();
-      details = data.detail ? `: ${data.detail}` : '';
-    } catch {
-      details = `: ${await response.text()}`;
-    }
-    throw new Error(`Network response failure ${response.status}${details}`);
+  // Read the body exactly once. A Response stream can only be consumed a single
+  // time, so trying response.json() then response.text() throws
+  // "body stream already read" and masks the real error.
+  const raw = await response.text();
+
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
   }
 
-  const data = await response.json();
-  return data.reply ?? data.text ?? data.message ?? '';
+  if (!response.ok) {
+    const detail = (data && data.detail) || raw || '';
+    throw new Error(`Network response failure ${response.status}${detail ? `: ${detail}` : ''}`);
+  }
+
+  if (data) {
+    return data.reply ?? data.text ?? data.message ?? '';
+  }
+  return raw;
 }
 
 async function callChatBackend(apiMessages, lane, userMessage) {
