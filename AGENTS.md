@@ -737,3 +737,16 @@ Preferred staged plan:
 8. Add tests that prove `main`, `deep`, and `comment` modes all work with the new backend.
 
 Do not start by rewriting the frontend or replacing the app architecture. The frontend already sends the right high-level concepts: structured messages, lane metadata, mode, and comment anchors. The model-serving layer should adapt to those concepts.
+
+## i14. SlimX stack first policy
+
+When implementing new capabilities, agents should prefer the SlimX stack whenever it is technically appropriate, maintainable, and consistent with the task.
+
+Before introducing a new LLM wrapper, provider abstraction, RAG framework, tool-calling layer, or agent runtime, check whether the existing SlimX stack already provides the needed primitive.
+
+Prefer `slimx` for LLM calls, provider registry, clients, messages, retries, middleware, streaming, tools, and structured output.
+
+Prefer `SlimX-RAG` for ingestion, deterministic chunking, embeddings, indexing, retrieval, citation, evaluation, and reproducible RAGOps artifacts.
+
+Do not add LangChain, LlamaIndex, Gradio, heavy agent frameworks, or new model wrappers by default. Add them only when there is a clear technical reason, the SlimX stack cannot reasonably cover the use case, and the trade-off is documented in the PR.
+
