@@ -6,6 +6,7 @@ ENV PORT=8080
 
 WORKDIR /app
 
+# git is required to install the `slimx` dependency from its Git URL.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -27,6 +28,18 @@ COPY tokenizer_lib /app/tokenizer_lib
 COPY static /app/static
 COPY server.py /app/server.py
 
+# Run as an unprivileged user. The model checkpoint is mounted read-only at
+# runtime, so the app never needs write access to it.
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8080
+
+# Container-level health probe. Uses the app's own /health route via stdlib so
+# no extra packages are required. start-period is generous because the slimx
+# backend warms the model on startup.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+  CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8080')+'/health', timeout=3).read()"
 
 CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]

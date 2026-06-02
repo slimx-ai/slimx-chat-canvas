@@ -1,27 +1,30 @@
+# Python / build caches
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Node / editor / OS cruft
+node_modules/
 .DS_Store
 __MACOSX/
+*.swp
+*.swo
+
+# VCS and CI metadata (not needed inside the image)
 .git/
 .github/
-.venv/
-.env
 
-# Do not bake large model weights into the image.
+# Secrets / local env
+.env
+.env.*
+
+# Do not bake large model weights into the image. They are mounted at runtime
+# (see deploy/docker-compose.prod.yml) or provided via TOASTER_CHECKPOINT_PATH.
 model/babyGPT/babyGPT_152M
-model/babyGPT/*.llm
-model/babyGPT/*.pt
-model/babyGPT/*.pth
-model/babyGPT/*.bin
-model/babyGPT/*.ckpt
-model/babyGPT/*.safetensors
 *.llm
 *.pt
 *.pth
 *.bin
 *.ckpt
 *.safetensors
-
-# Editor swap files
-*.swp
-*.swo

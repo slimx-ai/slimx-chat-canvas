@@ -5,30 +5,41 @@ services:
     restart: unless-stopped
 
     ports:
-      - "8080:8080"
+      - "${HOST_PORT:-8080}:8080"
 
     environment:
       PYTHONUNBUFFERED: "1"
 
-      MODEL_BACKEND: slimx
-      LLM_PROVIDER: toaster
-      LLM_MODEL: babygpt-152m
+      # Backend selection. Default is the local Toaster model served through SlimX.
+      MODEL_BACKEND: "${MODEL_BACKEND:-slimx}"
+      LLM_PROVIDER: "${LLM_PROVIDER:-toaster}"
+      LLM_MODEL: "${LLM_MODEL:-babygpt-152m}"
 
-      TOASTER_CONFIG_PATH: /models/babyGPT_152M_config
-      TOASTER_CHECKPOINT_PATH: /models/babyGPT_152M_125h.llm
-      TOASTER_PROMPT_MODE: completion
+      # Model files (the host directory is mounted read-only at /models below).
+      TOASTER_CONFIG_PATH: "${TOASTER_CONFIG_PATH:-/models/babyGPT_152M_config}"
+      TOASTER_CHECKPOINT_PATH: "${TOASTER_CHECKPOINT_PATH:-/models/babyGPT_152M_125h.llm}"
 
-      LLM_MAX_TOKENS: "50"
-      TOASTER_TOP_K: "35"
-      TOASTER_TEMPERATURE: "0.9"
-      TOASTER_RETURN_FULL_TEXT: "0"
-      TOASTER_STOP_ON_EOT: "1"
-      TOASTER_STRICT_LOAD: "1"
-      TOASTER_DO_SAMPLE: "1"
+      # Generation tuning.
+      LLM_MAX_TOKENS: "${LLM_MAX_TOKENS:-50}"
+      TOASTER_TOP_K: "${TOASTER_TOP_K:-35}"
+      TOASTER_TEMPERATURE: "${TOASTER_TEMPERATURE:-0.9}"
+      TOASTER_RETURN_FULL_TEXT: "${TOASTER_RETURN_FULL_TEXT:-0}"
+      TOASTER_STOP_ON_EOT: "${TOASTER_STOP_ON_EOT:-1}"
+      TOASTER_STRICT_LOAD: "${TOASTER_STRICT_LOAD:-1}"
+      TOASTER_DO_SAMPLE: "${TOASTER_DO_SAMPLE:-1}"
 
+      # Keep CPU thread pools small on shared VPS hardware.
       OMP_NUM_THREADS: "2"
       MKL_NUM_THREADS: "2"
       TORCH_NUM_THREADS: "2"
 
     volumes:
-      - /root/llm-toster-model:/models:ro
+      # Host directory containing babyGPT_152M_config + the .llm checkpoint.
+      - "${MODEL_DIR:-/root/llm-toster-model}:/models:ro"
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s

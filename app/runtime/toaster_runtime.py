@@ -227,7 +227,7 @@ class ToasterRuntime:
             raise RuntimeError("Model is not loaded")
 
         max_new_tokens = max_new_tokens or safe_int(
-            os.getenv("TOASTER_MAX_NEW_TOKENS", os.getenv("LLM_MAX_TOKENS", 128)),
+            os.getenv("TOASTER_MAX_NEW_TOKENS", os.getenv("LLM_MAX_TOKENS", "128")),
             128,
         )
 
@@ -235,7 +235,7 @@ class ToasterRuntime:
             temperature
             if temperature is not None
             else safe_float(
-                os.getenv("TOASTER_TEMPERATURE", os.getenv("LLM_TEMPERATURE", 0.8)),
+                os.getenv("TOASTER_TEMPERATURE", os.getenv("LLM_TEMPERATURE", "0.8")),
                 0.8,
             )
         )
@@ -243,7 +243,7 @@ class ToasterRuntime:
         top_k = (
             top_k
             if top_k is not None
-            else safe_int(os.getenv("TOASTER_TOP_K", 35), 35)
+            else safe_int(os.getenv("TOASTER_TOP_K", "35"), 35)
         )
 
         do_sample = (

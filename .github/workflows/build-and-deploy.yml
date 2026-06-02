@@ -9,8 +9,15 @@ permissions:
   contents: read
   packages: write
 
+# Never let two production deploys run at once.
+concurrency:
+  group: contabo-production
+  cancel-in-progress: true
+
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/slimx-chat-canvas
+  # Deploy the exact image built for this commit, not a mutable tag.
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   build-and-push:
@@ -35,7 +42,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=,format=short
+            type=sha,prefix=,format=long
             type=raw,value=latest
 
       - name: Build and push
@@ -45,22 +52,77 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    env:
+      APP_DIR: /opt/slimx-chat-canvas
+      GHCR_OWNER: ${{ github.repository_owner }}
+      IMAGE_TAG: ${{ github.sha }}
+      GHCR_USER: ${{ secrets.GHCR_USER }}
+      GHCR_PAT: ${{ secrets.GHCR_PAT }}
+      # Runtime configuration (override via repo/environment Variables).
+      HOST_PORT: ${{ vars.HOST_PORT }}
+      MODEL_DIR: ${{ vars.MODEL_DIR }}
+      MODEL_BACKEND: ${{ vars.MODEL_BACKEND }}
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+      LLM_MODEL: ${{ vars.LLM_MODEL }}
+      LLM_MAX_TOKENS: ${{ vars.LLM_MAX_TOKENS }}
+      TOASTER_CONFIG_PATH: ${{ vars.TOASTER_CONFIG_PATH }}
+      TOASTER_CHECKPOINT_PATH: ${{ vars.TOASTER_CHECKPOINT_PATH }}
     steps:
-      - name: Deploy over SSH
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare app directory on host
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.CONTABO_HOST }}
           username: ${{ secrets.CONTABO_USER }}
           key: ${{ secrets.CONTABO_SSH_KEY }}
           script_stop: true
-          # Default command_timeout is 10m; image pull + extract on Contabo's
-          # slow disk can exceed that. Give it generous headroom.
+          script: |
+            mkdir -p ${{ env.APP_DIR }}
+
+      - name: Copy deployment files to host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: ${{ secrets.CONTABO_USER }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          source: "deploy/docker-compose.prod.yml,deploy/deploy.sh"
+          target: ${{ env.APP_DIR }}
+          strip_components: 1
+          overwrite: true
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_DIR: ${{ env.APP_DIR }}
+          GHCR_OWNER: ${{ env.GHCR_OWNER }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          GHCR_USER: ${{ env.GHCR_USER }}
+          GHCR_PAT: ${{ env.GHCR_PAT }}
+          HOST_PORT: ${{ env.HOST_PORT }}
+          MODEL_DIR: ${{ env.MODEL_DIR }}
+          MODEL_BACKEND: ${{ env.MODEL_BACKEND }}
+          LLM_PROVIDER: ${{ env.LLM_PROVIDER }}
+          LLM_MODEL: ${{ env.LLM_MODEL }}
+          LLM_MAX_TOKENS: ${{ env.LLM_MAX_TOKENS }}
+          TOASTER_CONFIG_PATH: ${{ env.TOASTER_CONFIG_PATH }}
+          TOASTER_CHECKPOINT_PATH: ${{ env.TOASTER_CHECKPOINT_PATH }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: ${{ secrets.CONTABO_USER }}
+          key: ${{ secrets.CONTABO_SSH_KEY }}
+          envs: APP_DIR,GHCR_OWNER,IMAGE_TAG,GHCR_USER,GHCR_PAT,HOST_PORT,MODEL_DIR,MODEL_BACKEND,LLM_PROVIDER,LLM_MODEL,LLM_MAX_TOKENS,TOASTER_CONFIG_PATH,TOASTER_CHECKPOINT_PATH
+          script_stop: true
+          # Image pull + extract on Contabo's slow disk (the image ships CPU torch)
+          # can exceed the 10m default. Give it generous headroom.
           command_timeout: 30m
           script: |
-            export GHCR_OWNER=${{ github.repository_owner }}
-            export IMAGE_TAG=latest
-            /opt/slimx-chat-canvas/deploy.sh
+            chmod +x "${APP_DIR}/deploy.sh"
+            "${APP_DIR}/deploy.sh"

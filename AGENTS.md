@@ -738,7 +738,7 @@ Preferred staged plan:
 
 Do not start by rewriting the frontend or replacing the app architecture. The frontend already sends the right high-level concepts: structured messages, lane metadata, mode, and comment anchors. The model-serving layer should adapt to those concepts.
 
-## i14. SlimX stack first policy
+## 14. SlimX stack first policy
 
 When implementing new capabilities, agents should prefer the SlimX stack whenever it is technically appropriate, maintainable, and consistent with the task.
 

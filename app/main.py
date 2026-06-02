@@ -1,3 +1,15 @@
+"""FastAPI application for SlimX Chat Canvas.
+
+Routes (declared before the static mount so it cannot shadow them):
+  GET  /health           - liveness + active backend metadata
+  POST /api/chat         - main chat endpoint (structured messages or prompt)
+  POST /generate         - alias of /api/chat
+  POST /api/chat/stream  - single-chunk, streaming-shaped wrapper of /api/chat
+
+Backend dispatch is driven by the MODEL_BACKEND env var:
+echo | http | slimx | direct_toaster. The heavy backends (slimx, toaster) are
+imported lazily, so echo mode runs with no torch/SlimX dependency.
+"""
 from __future__ import annotations
 
 import logging
@@ -12,7 +24,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.schemas import ChatMessage, ChatRequest, ChatResponse
+from app.schemas import ChatRequest, ChatResponse
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -188,6 +200,15 @@ async def generate_endpoint(payload: ChatRequest) -> ChatResponse:
 
 @app.post("/api/chat/stream")
 def chat_stream(payload: ChatRequest):
+    """Streaming-shaped wrapper around /api/chat.
+
+    The current providers return a complete response rather than incremental
+    tokens, so this emits the whole reply as a single chunk. It keeps the
+    /api/chat/stream route stable for clients; real token streaming will hook
+    into slimx_gateway.stream_complete() once provider streaming is enabled
+    (see AGENTS.md section 13). This handler is sync, so Starlette runs it in a
+    worker thread, where anyio.run() can safely drive the async chat_endpoint.
+    """
     def gen() -> Generator[str, None, None]:
         import anyio
         response = anyio.run(chat_endpoint, payload)
