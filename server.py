@@ -1,51 +1,121 @@
+import logging
+import os
+from threading import Lock
+from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from gradio_client import Client 
-import sys
+from pydantic import BaseModel, Field
+from slimx import llm
+
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger("slimx-chat-canvas")
 
 app = FastAPI()
 
+
 class ChatRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(..., min_length=1, max_length=12000)
 
-GRADIO_URL = "https://gpt.baby-gpt.com"
 
-print("Initializing Gradio Client connection...", flush=True)
-gradio_client = None
-try:
-    gradio_client = Client(GRADIO_URL)
-    print("Gradio Client connection established successfully.", flush=True)
-except Exception as e:
-    print(f"Failed to initialize Gradio Client: {e}", flush=True)
+def env_value(name: str, default: str = "") -> str:
+    return os.getenv(name, default).strip()
 
-# REMOVED 'async' to allow FastAPI to process this on an isolated thread pool
+
+def env_float(name: str, default: float) -> float:
+    raw_value = env_value(name, str(default))
+    try:
+        return float(raw_value)
+    except ValueError:
+        logger.warning("Invalid %s=%r; using default %s", name, raw_value, default)
+        return default
+
+
+def env_int(name: str, default: int) -> int:
+    raw_value = env_value(name, str(default))
+    try:
+        return int(raw_value)
+    except ValueError:
+        logger.warning("Invalid %s=%r; using default %s", name, raw_value, default)
+        return default
+
+
+SLIMX_MODEL = env_value("SLIMX_MODEL", "openai:gpt-4.1-nano")
+SLIMX_TEMPERATURE = env_float("SLIMX_TEMPERATURE", 0.2)
+SLIMX_MAX_TOKENS = env_int("SLIMX_MAX_TOKENS", 1024)
+SLIMX_TIMEOUT = env_float("SLIMX_TIMEOUT", 60.0)
+SLIMX_RETRIES = env_int("SLIMX_RETRIES", 2)
+DEBUG_PROMPTS = env_value("DEBUG_PROMPTS", "false").lower() == "true"
+
+slimx_model: Any = None
+slimx_model_lock = Lock()
+
+
+def create_slimx_model():
+    return llm(
+        SLIMX_MODEL,
+        temperature=SLIMX_TEMPERATURE,
+        max_tokens=SLIMX_MAX_TOKENS,
+        timeout=SLIMX_TIMEOUT,
+        retries=SLIMX_RETRIES,
+    )
+
+
+def get_slimx_model():
+    global slimx_model
+    if slimx_model is not None:
+        return slimx_model
+
+    with slimx_model_lock:
+        if slimx_model is None:
+            logger.info("Initializing SlimX model. model=%s", SLIMX_MODEL)
+            slimx_model = create_slimx_model()
+            logger.info("SlimX model initialized")
+
+    return slimx_model
+
+
+def call_model(prompt: str) -> str:
+    try:
+        result = get_slimx_model()(prompt)
+    except Exception as exc:
+        logger.exception("SlimX model call failed")
+        raise HTTPException(status_code=503, detail="AI backend is unavailable. Please try again later.") from exc
+
+    text = getattr(result, "text", None)
+    if text is None:
+        text = str(result)
+
+    return str(text)
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+def readyz():
+    return {
+        "status": "ok" if SLIMX_MODEL else "not_configured",
+        "slimx_model": SLIMX_MODEL,
+        "slimx_configured": bool(SLIMX_MODEL),
+    }
+
+
 @app.post("/api/chat")
 def chat_endpoint(payload: ChatRequest):
-    print(f"\n--- New Chat Request Received ---", flush=True)
-    print(f"Payload Prompt passed to Backend:\n{payload.prompt}", flush=True)
-    
-    if gradio_client is None:
-        raise HTTPException(status_code=503, detail="Model backend is unavailable. Please try again later.")
+    prompt = payload.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=422, detail="Prompt cannot be blank.")
 
-    try:
-        print("Forwarding payload to upstream Gradio model...", flush=True)
-        
-        # Call upstream model
-        result = gradio_client.predict(
-            prompt=payload.prompt, 
-            model_choice="babyGPT_152M_125h.llm",
-            api_name="/gradio_interface"
-        )
-        
-        print(f"Upstream response successfully received type: {type(result)}", flush=True)
-        print(f"Raw Upstream Result content: {result}", flush=True)
-        
-        return {"reply": str(result)}
-        
-    except Exception as e:
-        print(f"ERROR during Gradio API prediction phase: {str(e)}", flush=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Received chat request. prompt_chars=%s", len(prompt))
+    if DEBUG_PROMPTS:
+        logger.info("Prompt payload: %s", prompt)
 
-# Mount static web directory assets
+    reply = call_model(prompt)
+    logger.info("SlimX response received. reply_chars=%s", len(reply))
+    return {"reply": reply}
+
+
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

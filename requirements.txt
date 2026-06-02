@@ -1,0 +1,4 @@
+fastapi==0.136.3
+pydantic==2.13.4
+slimx @ https://github.com/slimx-ai/slimx/archive/refs/tags/v0.4.1.tar.gz
+uvicorn[standard]==0.48.0
