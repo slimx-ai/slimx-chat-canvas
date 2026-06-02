@@ -396,11 +396,21 @@ textarea:focus {
   background: #2f2f2f;
 }
 
+#sendBtn:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .status {
   min-height: 18px;
   margin-top: 5px;
-  color: var(--danger);
+  color: var(--muted);
   font-size: 0.8rem;
+}
+
+.status[data-error="true"] {
+  color: var(--danger);
 }
 
 .copy-btn {

@@ -1,51 +1,78 @@
+import logging
+import os
+from threading import Lock
+
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from gradio_client import Client 
-import sys
+from gradio_client import Client
+from pydantic import BaseModel, Field
+
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger("slimx-chat-canvas")
 
 app = FastAPI()
 
+
 class ChatRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(..., min_length=1, max_length=12000)
 
-GRADIO_URL = "https://gpt.baby-gpt.com"
 
-print("Initializing Gradio Client connection...", flush=True)
+GRADIO_URL = os.getenv("GRADIO_URL", "https://gpt.baby-gpt.com")
+GRADIO_MODEL_CHOICE = os.getenv("GRADIO_MODEL_CHOICE", "babyGPT_152M_125h.llm")
+GRADIO_API_NAME = os.getenv("GRADIO_API_NAME", "/gradio_interface")
+DEBUG_PROMPTS = os.getenv("DEBUG_PROMPTS", "false").lower() == "true"
+
 gradio_client = None
-try:
-    gradio_client = Client(GRADIO_URL)
-    print("Gradio Client connection established successfully.", flush=True)
-except Exception as e:
-    print(f"Failed to initialize Gradio Client: {e}", flush=True)
+gradio_client_lock = Lock()
 
-# REMOVED 'async' to allow FastAPI to process this on an isolated thread pool
+
+def get_gradio_client():
+    global gradio_client
+    if gradio_client is not None:
+        return gradio_client
+
+    with gradio_client_lock:
+        if gradio_client is None:
+            logger.info("Initializing Gradio client for %s", GRADIO_URL)
+            gradio_client = Client(GRADIO_URL)
+            logger.info("Gradio client connection established")
+
+    return gradio_client
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+
 @app.post("/api/chat")
 def chat_endpoint(payload: ChatRequest):
-    print(f"\n--- New Chat Request Received ---", flush=True)
-    print(f"Payload Prompt passed to Backend:\n{payload.prompt}", flush=True)
-    
-    if gradio_client is None:
-        raise HTTPException(status_code=503, detail="Model backend is unavailable. Please try again later.")
+    prompt = payload.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=422, detail="Prompt cannot be blank.")
+
+    logger.info("Received chat request. prompt_chars=%s", len(prompt))
+    if DEBUG_PROMPTS:
+        logger.info("Prompt payload: %s", prompt)
 
     try:
-        print("Forwarding payload to upstream Gradio model...", flush=True)
-        
-        # Call upstream model
-        result = gradio_client.predict(
-            prompt=payload.prompt, 
-            model_choice="babyGPT_152M_125h.llm",
-            api_name="/gradio_interface"
-        )
-        
-        print(f"Upstream response successfully received type: {type(result)}", flush=True)
-        print(f"Raw Upstream Result content: {result}", flush=True)
-        
-        return {"reply": str(result)}
-        
-    except Exception as e:
-        print(f"ERROR during Gradio API prediction phase: {str(e)}", flush=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        client = get_gradio_client()
+        logger.info("Forwarding request to upstream Gradio model")
 
-# Mount static web directory assets
+        result = client.predict(
+            prompt=prompt,
+            model_choice=GRADIO_MODEL_CHOICE,
+            api_name=GRADIO_API_NAME,
+        )
+
+        logger.info("Upstream response received. response_type=%s", type(result).__name__)
+        return {"reply": str(result)}
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error during Gradio API prediction")
+        raise HTTPException(status_code=503, detail="Model backend is unavailable. Please try again later.") from exc
+
+
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
